@@ -1,11 +1,14 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { Award, Trophy, ExternalLink } from "lucide-react";
 import { SiCredly } from "react-icons/si";
 import { achievements, certifications, profile } from "@/lib/data";
 import { SectionHeader } from "./About";
 
+/**
+ * Server component, no framer-motion. Certification + achievement cards
+ * used to be `motion.li` with `initial={{ opacity: 0 }}` — that hid
+ * every entry until React hydration AND IntersectionObserver fired.
+ * On a slow mobile that was 10–20 s of blank space below the fold.
+ */
 export default function Certifications() {
   return (
     <section id="certifications" className="relative py-24 sm:py-32">
@@ -38,13 +41,9 @@ export default function Certifications() {
               </a>
             </div>
             <ul className="grid sm:grid-cols-2 gap-3">
-              {certifications.map((c, i) => (
-                <motion.li
+              {certifications.map((c) => (
+                <li
                   key={c.title}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.05, margin: "200px" }}
-                  transition={{ duration: 0.35, delay: i * 0.04 }}
                   className="glass rounded-xl p-4 hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="flex items-start gap-3">
@@ -63,7 +62,7 @@ export default function Certifications() {
                       </p>
                     </div>
                   </div>
-                </motion.li>
+                </li>
               ))}
             </ul>
           </div>
@@ -75,17 +74,10 @@ export default function Certifications() {
             <div className="glass rounded-2xl p-5">
               <ul className="space-y-3 text-sm text-white/75 leading-relaxed">
                 {achievements.map((a, i) => (
-                  <motion.li
-                    key={i}
-                    initial={{ opacity: 0, x: 8 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, amount: 0.05, margin: "200px" }}
-                    transition={{ duration: 0.3, delay: i * 0.03 }}
-                    className="pl-4 relative"
-                  >
+                  <li key={i} className="pl-4 relative">
                     <span className="absolute left-0 top-2 size-1.5 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500" />
                     {a}
-                  </motion.li>
+                  </li>
                 ))}
               </ul>
             </div>

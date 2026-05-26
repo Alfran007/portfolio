@@ -1,9 +1,12 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { skillGroups } from "@/lib/data";
 import { SectionHeader } from "./About";
 
+/**
+ * Server component, no framer-motion. Skill-group cards used to be
+ * `motion.div` with `initial={{ opacity: 0 }}` — same story as the
+ * other sections, content was hidden until hydration + viewport
+ * intersection fired. Marquee is pure CSS so it works without JS.
+ */
 const marqueeChips = [
   "Generative AI",
   "Agentic AI",
@@ -44,13 +47,9 @@ export default function Skills() {
         />
 
         <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {skillGroups.map((g, i) => (
-            <motion.div
+          {skillGroups.map((g) => (
+            <div
               key={g.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.05, margin: "200px" }}
-              transition={{ duration: 0.35, delay: i * 0.04 }}
               className="glass rounded-2xl p-5 relative overflow-hidden group"
             >
               <div
@@ -72,7 +71,7 @@ export default function Skills() {
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 

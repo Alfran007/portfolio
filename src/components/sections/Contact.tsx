@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
 import { Mail, Send, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { FaGithub, FaLinkedinIn } from "react-icons/fa";
 import { SiCredly } from "react-icons/si";
@@ -85,14 +84,10 @@ export default function Contact() {
         />
 
         <div className="mt-12 grid lg:grid-cols-12 gap-6">
-          {/* Left: info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.05, margin: "200px" }}
-            transition={{ duration: 0.4 }}
-            className="lg:col-span-5 space-y-5"
-          >
+          {/* Left: info — plain div, no motion. Entrance animation used
+              to hide the entire column behind `opacity:0` until JS
+              hydrated; on a slow mobile that was seconds of blank space. */}
+          <div className="lg:col-span-5 space-y-5">
             <p className="text-white/70 leading-relaxed">
               Have a role, idea, or project where distributed systems meet AI? I'd love to hear about it.
             </p>
@@ -165,15 +160,11 @@ export default function Contact() {
                 </div>
               </div>
             )}
-          </motion.div>
+          </div>
 
-          {/* Right: form */}
-          <motion.form
+          {/* Right: form — plain form, no motion wrapper. */}
+          <form
             onSubmit={handleSubmit}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.05, margin: "200px" }}
-            transition={{ duration: 0.4, delay: 0.08 }}
             className="lg:col-span-7 glass-strong rounded-3xl p-6 sm:p-8 space-y-4"
           >
             {/* Honeypot */}
@@ -204,7 +195,7 @@ export default function Contact() {
                 )}
               </button>
             </div>
-          </motion.form>
+          </form>
         </div>
       </div>
     </section>

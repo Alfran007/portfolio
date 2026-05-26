@@ -1,10 +1,14 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { Building2 } from "lucide-react";
 import { experiences } from "@/lib/data";
 import { SectionHeader } from "./About";
 
+/**
+ * Server component, no framer-motion. Previous version wrapped every
+ * timeline entry in `motion.li` with `initial={{ opacity: 0, y: 24 }}`,
+ * which hid every entry until React hydrated framer-motion AND the
+ * IntersectionObserver fired — that's why mobile users saw a blank
+ * timeline for 10–20 s after the loader exited. Static HTML now.
+ */
 export default function Experience() {
   return (
     <section id="experience" className="relative py-24 sm:py-32">
@@ -26,13 +30,9 @@ export default function Experience() {
             {experiences.map((exp, i) => {
               const left = i % 2 === 0;
               return (
-                <motion.li
+                <li
                   key={`${exp.company}-${exp.role}`}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.05, margin: "200px" }}
-                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                  className={`relative grid sm:grid-cols-2 gap-4 sm:gap-8`}
+                  className="relative grid sm:grid-cols-2 gap-4 sm:gap-8"
                 >
                   {/* Dot */}
                   <span
@@ -81,7 +81,7 @@ export default function Experience() {
                       </div>
                     </article>
                   </div>
-                </motion.li>
+                </li>
               );
             })}
           </ol>

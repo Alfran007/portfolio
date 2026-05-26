@@ -1,10 +1,13 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { projects } from "@/lib/data";
 import { SectionHeader } from "./About";
 
+/**
+ * Server component, no framer-motion. Cards used to fade in via
+ * `whileInView` which hid them at SSR — that was costing mobile users
+ * seconds of blank space below the fold. Hover effects remain via
+ * Tailwind `group-hover:` and CSS transitions.
+ */
 const accentMap: Record<string, string> = {
   cyan: "from-cyan-400/30 to-cyan-500/0",
   violet: "from-violet-400/30 to-violet-500/0",
@@ -33,13 +36,9 @@ export default function Projects() {
         />
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 auto-rows-[minmax(220px,auto)] gap-4">
-          {projects.map((p, i) => (
-            <motion.article
+          {projects.map((p) => (
+            <article
               key={p.title}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.05, margin: "200px" }}
-              transition={{ duration: 0.35, delay: (i % 6) * 0.04 }}
               className={`group relative rounded-2xl glass overflow-hidden p-6 flex flex-col justify-between hover:bg-white/[0.06] transition-all ${sizeMap[p.size] ?? ""}`}
             >
               <div
@@ -85,7 +84,7 @@ export default function Projects() {
                   <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                 </span>
               </footer>
-            </motion.article>
+            </article>
           ))}
         </div>
       </div>

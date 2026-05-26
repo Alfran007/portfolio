@@ -5,39 +5,24 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
- * Full-page loader. THREE signal lanes feed the same bar — the previous
- * two-signal version (hero + contact) was exiting the moment the hero
- * image had decoded, leaving fonts, below-fold images, framer-motion
- * boot work, and CSS chunks still streaming in. The user saw the curtain
- * lift onto a half-rendered page with the browser's tab-loading spinner
- * still active.
+ * Full-page loader. Earlier this waited on `window.load` as a third
+ * signal — but `window.load` fires only when ALL initial subresources
+ * (every image, every font file, every JS chunk including dynamic
+ * imports kicked off by client components) have finished. On a slow
+ * mobile network that took 10–20 s, leaving the user behind the curtain
+ * staring at "90 %" while the rest of the page silently streamed in.
  *
- *  - `hero-ready`    → hero asset has been painted
- *                        - Desktop: HeroScene's 3rd useFrame
- *                        - Mobile: `<Image onLoad>` on the WebP cutout
- *  - `contact-ready` → contact asset has been painted
- *                        - Desktop: BusinessmanScene's 3rd useFrame
- *                        - Mobile: `HeavyAssetPrefetcher` (immediate)
- *  - `window.load`   → the browser itself agrees that all initial
- *                      subresources (fonts, images, CSS, JS chunks) are
- *                      done loading. This is the same signal that stops
- *                      the browser tab's loading indicator, so by waiting
- *                      on it the in-page loader stays in sync with the
- *                      browser's own loading state.
+ * Now the curtain lifts as soon as the hero (the only thing visible
+ * above the fold) has painted, plus a short safety floor so the
+ * percentage animation doesn't feel like a teleport.
  *
- *  Ramp cap is staged by how many signals have fired:
- *    0 ready → cap 30 (early — before anything paints)
- *    1 ready → cap 60
- *    2 ready → cap 90
- *    all 3   → snap to 100, exit
+ *  - `hero-ready` → hero asset painted
+ *                     - Desktop: HeroScene's 3rd useFrame
+ *                     - Mobile: `<Image onLoad>` on the WebP cutout
  *
- *  Mobile tick is 30 ms with a 14 % step rate (vs 60 ms / 6 % on
- *  desktop) so the bar visibly moves between signals instead of feeling
- *  stuck at a cap.
- *
- *  Hard fallback: 4 s on mobile, 10 s on desktop — generous enough to
- *  let `window.load` fire on a normal connection, but short enough that
- *  a stalled third-party resource can't strand the user behind the curtain.
+ * Hard fallback: 2 s on mobile, 5 s on desktop. Below-fold sections
+ * are now plain server-rendered HTML — they don't need the loader to
+ * hide them while JS boots, because there's nothing hidden in them.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
@@ -48,69 +33,43 @@ export default function WelcomeLoader() {
     if (typeof window === "undefined") return;
 
     let heroReady = false;
-    let contactReady = false;
-    let pageLoaded = document.readyState === "complete";
     let tickInterval: ReturnType<typeof setInterval> | null = null;
     let exitTimer: ReturnType<typeof setTimeout> | null = null;
     let completed = false;
 
-    const tickMs = isMobile ? 30 : 60;
-    const stepFactor = isMobile ? 0.14 : 0.06;
-
-    const readyCount = () =>
-      (heroReady ? 1 : 0) + (contactReady ? 1 : 0) + (pageLoaded ? 1 : 0);
+    const tickMs = isMobile ? 24 : 40;
+    const stepFactor = isMobile ? 0.22 : 0.12;
 
     const complete = () => {
       if (completed) return;
       completed = true;
       if (tickInterval) clearInterval(tickInterval);
       setCount(100);
-      // Tiny hold so users see the "100" land before the curtain lifts.
-      exitTimer = setTimeout(() => setShow(false), 120);
-    };
-
-    const tryComplete = () => {
-      if (heroReady && contactReady && pageLoaded) complete();
+      exitTimer = setTimeout(() => setShow(false), 100);
     };
 
     const markHero = () => {
       heroReady = true;
-      tryComplete();
-    };
-    const markContact = () => {
-      contactReady = true;
-      tryComplete();
-    };
-    const markLoad = () => {
-      pageLoaded = true;
-      tryComplete();
+      complete();
     };
     window.addEventListener("hero-ready", markHero);
-    window.addEventListener("contact-ready", markContact);
-    if (!pageLoaded) window.addEventListener("load", markLoad);
 
-    // Hard fallback — generous enough to let window.load fire on a normal
-    // connection, but bounded so a stalled third-party resource can't
-    // strand the user.
+    // Hard fallback — keeps the curtain from stranding the user if the
+    // hero asset never reports back.
     const maxTimeout = setTimeout(
       () => {
         heroReady = true;
-        contactReady = true;
-        pageLoaded = true;
         complete();
       },
-      isMobile ? 4000 : 10000,
+      isMobile ? 2000 : 5000,
     );
 
-    // Ramp toward a cap that depends on how many signals have fired. The
-    // bar always moves visibly during the wait, but it can't ever reach
-    // 100 until everything is truly ready — so "100" honestly means the
-    // page is interactive.
+    // Ramp toward 90 while we wait for `hero-ready`; on the signal we
+    // snap to 100 and exit.
     tickInterval = setInterval(() => {
       setCount((c) => {
         if (completed) return c;
-        const ready = readyCount();
-        const cap = [30, 60, 90, 100][ready];
+        const cap = heroReady ? 100 : 90;
         const remaining = Math.max(0, cap - c);
         if (remaining <= 0) return c;
         const step = Math.max(1, Math.ceil(remaining * stepFactor));
@@ -120,8 +79,6 @@ export default function WelcomeLoader() {
 
     return () => {
       window.removeEventListener("hero-ready", markHero);
-      window.removeEventListener("contact-ready", markContact);
-      window.removeEventListener("load", markLoad);
       clearTimeout(maxTimeout);
       if (exitTimer) clearTimeout(exitTimer);
       if (tickInterval) clearInterval(tickInterval);
