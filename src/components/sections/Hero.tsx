@@ -77,7 +77,7 @@ export default function Hero() {
           // contrast) keeps the photo from looking like a too-bright office
           // shot against the deep navy page.
           <Image
-            src="/avatar-mobile-v2.webp"
+            src="/avatar-mobile-v3.webp"
             alt="Syed Alfran Ali"
             fill
             priority
