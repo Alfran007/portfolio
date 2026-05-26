@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import AmbientBackground from "@/components/AmbientBackground";
 import CustomCursor from "@/components/CustomCursor";
 import WelcomeLoader from "@/components/WelcomeLoader";
-import HeavyAssetPrefetcher from "@/components/HeavyAssetPrefetcher";
+import { serverIsMobile } from "@/lib/serverIsMobile";
 
 const inter = Inter({
   variable: "--font-sans-stack",
@@ -76,21 +76,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Server-side mobile detection: drives both the `WelcomeLoader` tick
+  // timing and skips the desktop-only chrome (live starfield canvas,
+  // custom cursor) entirely on phones — saving their JS chunks and
+  // their continuous rAF work from the mobile main thread.
+  const isMobile = await serverIsMobile();
   return (
     <html
       lang="en"
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col text-foreground">
-        <WelcomeLoader />
-        <HeavyAssetPrefetcher />
-        <AmbientBackground />
-        <CustomCursor />
+        <WelcomeLoader isMobile={isMobile} />
+        {!isMobile && <AmbientBackground />}
+        {!isMobile && <CustomCursor />}
         <SmoothScroll>
           <Navbar />
           <main className="flex-1 relative z-10">{children}</main>

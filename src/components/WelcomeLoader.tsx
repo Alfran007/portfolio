@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Full-page loader. Earlier this waited on `window.load` as a third
@@ -24,10 +23,9 @@ import { useIsMobile } from "@/lib/useIsMobile";
  * are now plain server-rendered HTML — they don't need the loader to
  * hide them while JS boots, because there's nothing hidden in them.
  */
-export default function WelcomeLoader() {
+export default function WelcomeLoader({ isMobile }: { isMobile: boolean }) {
   const [count, setCount] = useState(0);
   const [show, setShow] = useState(true);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (typeof window === "undefined") return;

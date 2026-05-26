@@ -5,43 +5,34 @@ import Skills from "@/components/sections/Skills";
 import Projects from "@/components/sections/Projects";
 import Certifications from "@/components/sections/Certifications";
 import Contact from "@/components/sections/Contact";
+import { serverIsMobile } from "@/lib/serverIsMobile";
 
 /**
- * Every section is mounted eagerly. We used to wrap below-the-fold
- * sections in `LazySection` (IntersectionObserver gate) to keep the
- * main thread free during initial paint, but that was tied to mobile
- * WebGL — which is gone now. The remaining sections are plain HTML +
- * framer-motion (which has its own viewport-aware `whileInView`
- * gating), so their mount cost is trivial.
+ * Server component. We compute `isMobile` once on the server from the
+ * `User-Agent` header and pass it down to the components that branch
+ * on viewport (`Hero` + `Contact`). The SSR HTML now matches the
+ * device — no more "server rendered the desktop tree (with WebGL
+ * placeholders), then the mobile client had to download the WebGL
+ * chunks just to hydrate before swapping to the mobile tree". That
+ * mismatch was costing 10–15 s of mobile network + main-thread time
+ * before any below-fold content became visible.
  *
- * Lazy-mounting was also actively hurting perceived speed: after
- * `WelcomeLoader` exited, the user saw blank placeholders for About /
- * Experience / Skills / Projects / Certifications until they scrolled
- * and the observer fired. The matchMedia-in-useState trick we tried to
- * skip the gate on touch devices was unreliable because SSR runs
- * without `window` (initial state = false), and React's hydration
- * locks that state in. Removing the wrappers entirely means SSR'd
- * markup is fully present and interactive the instant the loader
- * curtain lifts.
- *
- * `Hero` and `Contact` are unchanged from before — `Contact` still
- * owns the heaviest below-fold work (BusinessmanScene + a 1 MB GLB),
- * and we deliberately mount it at page load so its chunk + GLB
- * download + first-frame render all happen inside the WelcomeLoader
- * window. The loader listens for `contact-ready` (dispatched by
- * BusinessmanScene's first useFrame) and holds the curtain until that
- * fires, so the user never sees a mid-scroll stutter on Contact.
+ * Every below-fold section (About, Experience, Skills, Projects,
+ * Certifications) is plain server-rendered HTML with no motion
+ * gating, so the SSR HTML is fully visible the instant the browser
+ * parses it.
  */
-export default function Home() {
+export default async function Home() {
+  const isMobile = await serverIsMobile();
   return (
     <>
-      <Hero />
+      <Hero isMobile={isMobile} />
       <About />
       <Experience />
       <Skills />
       <Projects />
       <Certifications />
-      <Contact />
+      <Contact isMobile={isMobile} />
     </>
   );
 }

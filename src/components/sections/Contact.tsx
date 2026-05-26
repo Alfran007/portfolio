@@ -7,11 +7,10 @@ import { FaGithub, FaLinkedinIn } from "react-icons/fa";
 import { SiCredly } from "react-icons/si";
 import { profile } from "@/lib/data";
 import { SectionHeader } from "./About";
-import { useIsMobile } from "@/lib/useIsMobile";
 
-// BusinessmanScene only renders on the desktop branch below. With
-// `useIsMobile()` resolving synchronously, the dynamic chunk (R3F + three +
-// drei + the ~1 MB GLB) never starts downloading on phones.
+// `BusinessmanScene` is only referenced when `isMobile === false`, and the
+// parent resolves that on the server from the User-Agent. So the dynamic
+// chunk + GLB + R3F/three/drei never enter the mobile bundle.
 const BusinessmanScene = dynamic(() => import("@/components/three/BusinessmanScene"), {
   ssr: false,
 });
@@ -19,14 +18,22 @@ const BusinessmanScene = dynamic(() => import("@/components/three/BusinessmanSce
 type Status = "idle" | "loading" | "success" | "error";
 
 /**
- * Uses Web3Forms (https://web3forms.com) — set NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY
- * in your .env.local for live form submission. Falls back to a mailto link.
+ * `isMobile` arrives as a server-side-resolved prop from `page.tsx`
+ * so the SSR HTML matches the device. Previously we read it from
+ * `useIsMobile()` which returned `false` during SSR, meaning every
+ * mobile client first rendered the desktop tree (incl. the
+ * `BusinessmanScene` `next/dynamic` placeholder), needed to fetch
+ * the R3F/three/drei chunks for hydration, then unmounted them — the
+ * source of the "browser loading bar stays up for 10–15 s" symptom.
+ *
+ * Uses Web3Forms (https://web3forms.com) — set
+ * NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY in `.env.local` for live form
+ * submission. Falls back to a mailto link.
  */
-export default function Contact() {
+export default function Contact({ isMobile }: { isMobile: boolean }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errMsg, setErrMsg] = useState<string>("");
   const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY;
-  const isMobile = useIsMobile();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
