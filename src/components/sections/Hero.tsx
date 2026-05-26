@@ -1,10 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDown, Download, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { profile } from "@/lib/data";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 const ROLES = [
   "Senior Software Engineer",
@@ -14,6 +16,10 @@ const ROLES = [
   "Platform Engineer",
 ];
 
+// HeroScene only renders on the desktop branch below — `useIsMobile()` reads
+// `matchMedia` synchronously on mount, so on phones this dynamic chunk is
+// never requested. The WebGL bundle (R3F + three + drei + postprocessing,
+// roughly 800 KB gzip) stays off the mobile wire entirely.
 const HeroScene = dynamic(() => import("@/components/three/HeroScene"), {
   ssr: false,
   loading: () => (
@@ -34,6 +40,7 @@ const item = {
 
 export default function Hero() {
   const [roleIdx, setRoleIdx] = useState(0);
+  const isMobile = useIsMobile();
   useEffect(() => {
     const id = setInterval(() => setRoleIdx((i) => (i + 1) % ROLES.length), 2400);
     return () => clearInterval(id);
@@ -43,11 +50,12 @@ export default function Hero() {
       id="hero"
       className="relative min-h-[100svh] flex items-center pt-28 pb-16"
     >
-      {/* FULL-BLEED 3D AVATAR — extends down into About; mask fades the bottom
-          so the floor disc + shoes don't collide with About's text. The scene
-          itself drops post-FX and lowers DPR on phones to keep frame rate up. */}
+      {/* Avatar layer — full-bleed background that extends down into About.
+          Desktop renders the live WebGL HeroScene. Mobile drops the WebGL
+          entirely and shows a pre-rendered WebP (≈ 188 KB) so the page
+          becomes interactive in under a second on phones. */}
       <div
-        className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none"
+        className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none select-none"
         style={{
           maskImage:
             "linear-gradient(to bottom, #000 0%, #000 78%, rgba(0,0,0,0.4) 90%, transparent 98%)",
@@ -61,7 +69,22 @@ export default function Hero() {
           <div className="absolute right-[6%] top-[55%] -translate-y-1/2 size-[50vmin] rounded-full bg-violet-500/20 blur-[100px]" />
           <div className="absolute right-[18%] top-[45%] -translate-y-1/2 size-[40vmin] rounded-full bg-white/[0.04] blur-[140px]" />
         </div>
-        <HeroScene />
+        {isMobile ? (
+          <Image
+            src="/avatar-mobile.webp"
+            alt="Syed Alfran Ali"
+            fill
+            priority
+            sizes="100vw"
+            // contain + center keeps the full figure in frame regardless of
+            // viewport aspect; pulled slightly upward so it sits above the
+            // text column rather than tangling with the bottom buttons.
+            className="object-contain object-[center_35%]"
+            draggable={false}
+          />
+        ) : (
+          <HeroScene />
+        )}
       </div>
 
       {/* Left-side gradient — confined to Hero. Lighter middle band so the avatar

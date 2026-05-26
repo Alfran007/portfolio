@@ -2,24 +2,37 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Moncy-style full-page loader. Counter ramps to 90% on its own pace, then
  * holds there until the Hero scene finishes loading (listens for the
  * `hero-ready` event dispatched by HeroScene once the avatar GLB + first
- * frame are mounted). Falls back to dismissing after 5s so the user is never
- * stuck on a stalled WebGL load.
+ * frame are mounted). Falls back to dismissing after 10s so the user is
+ * never stuck on a stalled WebGL load.
  *
- * Plays on every visit — no sessionStorage skip. The total time on a warm
- * cache is ~1.5s; on a cold mobile network it stays up until the avatar is
- * actually ready, so the page never reveals a half-loaded hero.
+ * Mobile DOES NOT render the loader at all. Phones no longer mount the 3D
+ * avatar (just a 188 KB WebP), so there's no heavy boot to mask — the
+ * loader just delays the first usable frame. We dismiss it on the very
+ * first client render on touch devices.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
   const [show, setShow] = useState(true);
+  const isMobile = useIsMobile();
+
+  // Mobile: skip the loader entirely once we know we're on a phone. The
+  // SSR pass still renders the loader markup (so the page doesn't flash
+  // unstyled content while JS downloads), then React hydrates, this hook
+  // resolves `isMobile = true`, and the loader unmounts immediately.
+  useEffect(() => {
+    if (isMobile) setShow(false);
+  }, [isMobile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Skip the heavy ramp/wait machinery on mobile — it's already hidden.
+    if (isMobile) return;
 
     // The loader holds at 90% until ALL of these signals fire:
     //   1. `hero-ready` — HeroScene has flushed 3 rendered frames (the GLB
@@ -119,7 +132,7 @@ export default function WelcomeLoader() {
       if (bufferTimer) clearTimeout(bufferTimer);
       clearInterval(tick);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <AnimatePresence>
