@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import SmoothScroll from "@/components/SmoothScroll";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AmbientBackground from "@/components/AmbientBackground";
-import CustomCursor from "@/components/CustomCursor";
 import WelcomeLoader from "@/components/WelcomeLoader";
 import { serverIsMobile } from "@/lib/serverIsMobile";
+
+// Desktop-only chrome — dynamic-imported so the JS chunk is fetched
+// only when the parent decides to render it. Server-side branching
+// below means these chunks never enter the mobile bundle at all
+// (they're not referenced from the mobile render path, so the
+// `react-loadable-manifest` doesn't request them).
+const AmbientBackground = dynamic(() => import("@/components/AmbientBackground"));
+const CustomCursor = dynamic(() => import("@/components/CustomCursor"));
 
 const inter = Inter({
   variable: "--font-sans-stack",
@@ -81,7 +88,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Server-side mobile detection: drives both the `WelcomeLoader` tick
+  // Server-side mobile detection drives both the `WelcomeLoader` tick
   // timing and skips the desktop-only chrome (live starfield canvas,
   // custom cursor) entirely on phones — saving their JS chunks and
   // their continuous rAF work from the mobile main thread.
