@@ -8,10 +8,18 @@ import { ReactNode, useEffect, useRef, useState } from "react";
  * placeholder of `minHeight` so the page layout / scroll position stays
  * stable while sections boot up.
  *
- * Use to keep below-the-fold sections from running their motion / Three.js
- * / image-load work during the initial paint window. On mobile, mounting
- * everything at once pegs the main thread for many seconds and leaves the
- * browser's "loading" indicator spinning long after the page is visible.
+ * Originally added to keep below-the-fold sections from running their
+ * motion / Three.js / image-load work during the initial paint window —
+ * specifically to stop the main thread from being pegged by mounting
+ * everything at once.
+ *
+ * **Touch devices skip the gate entirely.** Mobile now ships no WebGL
+ * (Hero is a static WebP, Contact drops the BusinessmanScene block), so
+ * the main-thread pressure that justified lazy mounting is gone. Keeping
+ * it on phones meant the user saw blank placeholders below the fold and
+ * had to wait for IntersectionObserver to fire as they scrolled — which
+ * felt slow / broken. On touch we mount immediately so the SSR'd content
+ * is interactive the instant the loader exits.
  *
  * Falls back to mounting immediately when IntersectionObserver is missing
  * so old browsers don't end up with permanently-empty sections.
@@ -31,7 +39,15 @@ export default function LazySection({
   rootMargin?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  // Mount synchronously on touch devices (read matchMedia in the initial
+  // state so we never render a placeholder on phones, even for one frame).
+  const [mounted, setMounted] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+      window.matchMedia("(max-width: 768px)").matches
+    );
+  });
 
   useEffect(() => {
     if (mounted) return;

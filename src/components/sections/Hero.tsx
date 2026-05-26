@@ -82,13 +82,14 @@ export default function Hero() {
             fill
             priority
             sizes="100vw"
-            // `object-[center_78%]` pushes the figure low in the frame so
-            // the face/eyes clear the "Available for AI…" status pill that
-            // sits at the top of the text column on phones. Lower than this
-            // and the head would dip into the mask gradient fade-out at
-            // 90 %+; higher than this and the eyes land directly behind
-            // the pill again.
-            className="object-contain object-[center_78%] opacity-90"
+            // `object-[center_92%]` anchors the figure near the bottom of
+            // the avatar container so the head clears the "Available for
+            // AI…" status pill at the top of the text column on phones.
+            // 78 % wasn't enough (pill still landed across the eyes); 92 %
+            // gives ~50 px of breathing room between pill bottom and face
+            // while still keeping the head inside the opaque area of the
+            // mask gradient (which doesn't start fading until 78 %).
+            className="object-contain object-[center_92%] opacity-90"
             style={{ filter: "saturate(0.92) contrast(1.05) brightness(0.96)" }}
             draggable={false}
             // Mobile equivalent of the desktop "hero-ready" signal — fires
