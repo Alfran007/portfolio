@@ -78,8 +78,8 @@ export default function Skills() {
 
         {/* Marquee */}
         <div className="mt-14 relative">
-          <div className="absolute inset-y-0 left-0 w-20 z-10 bg-gradient-to-r from-[#0b0f19] to-transparent pointer-events-none" />
-          <div className="absolute inset-y-0 right-0 w-20 z-10 bg-gradient-to-l from-[#0b0f19] to-transparent pointer-events-none" />
+          <div className="absolute inset-y-0 left-0 w-10 sm:w-20 z-10 bg-gradient-to-r from-[#0b0f19] to-transparent pointer-events-none" />
+          <div className="absolute inset-y-0 right-0 w-10 sm:w-20 z-10 bg-gradient-to-l from-[#0b0f19] to-transparent pointer-events-none" />
           <div className="overflow-hidden">
             <div className="flex w-max animate-marquee gap-3">
               {[...marqueeChips, ...marqueeChips].map((c, i) => (

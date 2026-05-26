@@ -127,6 +127,10 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
   return (
     <div className="relative w-full h-full pointer-events-none">
       <Canvas
+        // Re-mount when breakpoint flips so DPR / antialias settings actually
+        // take effect on the new GPU profile (Canvas reads these props only
+        // at mount time).
+        key={isMobile ? "m" : "d"}
         gl={{ alpha: true, antialias: !isMobile }}
         camera={{ position: [0, 0.2, cameraZ], fov: 32 }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}

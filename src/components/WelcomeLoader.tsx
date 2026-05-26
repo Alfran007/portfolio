@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
@@ -17,19 +17,21 @@ import { AnimatePresence, motion } from "framer-motion";
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
   const [show, setShow] = useState(true);
-  const readyRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     // The loader holds at 90% until ALL of these signals fire:
-    //   1. `hero-ready`   — HeroScene has mounted its GLB + first frame
-    //   2. window `load`  — all sync resources (HTML, CSS, fonts, images)
-    //                        finished loading
-    // Both signals are required so the loader covers the actual paint, not
-    // just the avatar bytes. A 10s fallback releases the loader regardless
-    // so it never strands the page on a stalled network.
-    const flags = { hero: false, win: false };
+    //   1. `hero-ready` — HeroScene has flushed 3 rendered frames (the GLB
+    //                     is on screen, not just uploaded to the GPU)
+    //   2. window `load` — every sync resource (HTML, CSS, images) finished
+    //   3. `fonts.ready` — every webfont is decoded so text isn't FOUT-ing
+    //                       under the loader exit
+    //   4. `buffer` — a short dwell AFTER 1–3 so the React tree has a beat
+    //                  to paint section content (avoids the "loader hides
+    //                  and the page is still snapping into place" flash)
+    // 10s hard fallback releases regardless so the user is never stranded.
+    const flags = { hero: false, win: false, fonts: false, buffer: false };
     const markHero = () => {
       flags.hero = true;
     };
@@ -44,14 +46,58 @@ export default function WelcomeLoader() {
       window.addEventListener("load", markWin);
     }
 
+    // Webfonts: resolve `document.fonts.ready` (Inter, Space Grotesk,
+    // JetBrains Mono). Older browsers without FontFace API fall through to
+    // `fonts = true` immediately so we don't strand the loader.
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready
+        .then(() => {
+          flags.fonts = true;
+        })
+        .catch(() => {
+          flags.fonts = true;
+        });
+    } else {
+      flags.fonts = true;
+    }
+
+    // Buffer: once hero + win + fonts are all green, wait for an idle frame
+    // PLUS ~1s dwell before green-lighting the final 90→100 ramp. The idle
+    // callback ensures the main thread is no longer pegged by React work
+    // (initial section paints, Framer animations starting), and the 1s dwell
+    // gives below-the-fold sections a beat to finish hydrating so the page
+    // doesn't visibly snap into place the instant the curtain slides off.
+    let bufferTimer: ReturnType<typeof setTimeout> | null = null;
+    type IdleWindow = Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+    };
+    const armBuffer = () => {
+      if (bufferTimer) return;
+      bufferTimer = setTimeout(() => {
+        const w = window as IdleWindow;
+        const finish = () => {
+          flags.buffer = true;
+        };
+        if (typeof w.requestIdleCallback === "function") {
+          w.requestIdleCallback(finish, { timeout: 600 });
+        } else {
+          finish();
+        }
+      }, 1000);
+    };
+
     const maxTimeout = setTimeout(() => {
       flags.hero = true;
       flags.win = true;
+      flags.fonts = true;
+      flags.buffer = true;
     }, 10000);
 
     let v = 0;
     const tick = setInterval(() => {
-      const allReady = flags.hero && flags.win;
+      const coreReady = flags.hero && flags.win && flags.fonts;
+      if (coreReady) armBuffer();
+      const allReady = coreReady && flags.buffer;
       const cap = allReady ? 100 : 90;
       if (v >= cap) {
         if (v >= 100) {
@@ -70,6 +116,7 @@ export default function WelcomeLoader() {
       window.removeEventListener("hero-ready", markHero);
       window.removeEventListener("load", markWin);
       clearTimeout(maxTimeout);
+      if (bufferTimer) clearTimeout(bufferTimer);
       clearInterval(tick);
     };
   }, []);

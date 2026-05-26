@@ -88,24 +88,37 @@ export default function Hero() {
             Hi, I'm <span className="text-gradient">{profile.name}</span>
           </motion.h1>
 
+          {/* Role + company. On anything narrower than `lg` the company chip
+              drops to its own line so a long role like "Distributed Systems
+              Architect" never gets clipped by the column — iPad portrait
+              (768) and big phones (430+) all stack instead of squeezing.
+              The role itself stays inside a fixed-height clip so the
+              y-slide AnimatePresence animation can't push other content
+              around between role transitions. */}
           <motion.div
             variants={item}
-            className="mt-5 flex items-baseline gap-2 text-lg sm:text-xl text-white/70 h-8 overflow-hidden"
+            className="mt-5 text-sm sm:text-base lg:text-xl text-white/70"
           >
-            <span className="text-white/40 font-mono text-sm">{`>`}</span>
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={roleIdx}
-                initial={{ y: 28, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -28, opacity: 0 }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                className="text-gradient-accent font-semibold"
-              >
-                {ROLES[roleIdx]}
-              </motion.span>
-            </AnimatePresence>
-            <span className="text-white/40">@ {profile.company}</span>
+            <div className="flex flex-col lg:flex-row lg:items-baseline gap-0.5 lg:gap-2">
+              <div className="flex items-baseline gap-2 h-6 sm:h-7 lg:h-8 overflow-hidden">
+                <span className="text-white/40 font-mono text-[11px] sm:text-xs lg:text-sm shrink-0">{`>`}</span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={roleIdx}
+                    initial={{ y: 28, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -28, opacity: 0 }}
+                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                    className="text-gradient-accent font-semibold whitespace-nowrap"
+                  >
+                    {ROLES[roleIdx]}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
+              <span className="text-xs sm:text-sm lg:text-xl text-white/40 whitespace-nowrap">
+                @ {profile.company}
+              </span>
+            </div>
           </motion.div>
 
           <motion.p

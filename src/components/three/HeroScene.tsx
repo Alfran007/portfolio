@@ -23,14 +23,33 @@ import { useIsMobile } from "@/lib/useIsMobile";
 const AVATAR_URL = "/model_latest.glb";
 const TARGET_HEIGHT = 3.0; // world-units; tuned so full body fits camera frame
 const FEET_Y = -1.7;
-const ANCHOR_X = 1.75; // avatar's world X
-// Camera/lookAt sits LEFT of the avatar so the avatar renders RIGHT-of-center
-// on the canvas — keeps the empty right column visually occupied without
-// fighting the text column on the left.
-const CAMERA_X = 0.7;
 // Push avatar slightly toward camera so it "pops" out of the screen.
 const AVATAR_FORWARD_Z = 0.45;
-const CAMERA_BASE_Z = 6.4;
+
+// Device-aware framing constants.
+// Desktop: avatar sits RIGHT-of-center next to the text column on the left.
+// Mobile:  avatar is centered, FOV is wider, and the camera is pulled further
+// back so the FULL body (not just a hand) fits inside the portrait viewport.
+const DESKTOP_LAYOUT = {
+  anchorX: 1.75,
+  cameraX: 0.7,
+  baseZ: 6.4,
+  fov: 34,
+  headXFrac: 0.66,
+  headYFrac: 0.32,
+} as const;
+// Mobile: pulled back further (baseZ=9) with a wider FOV (50) so even on a
+// 320 px iPhone SE the whole avatar — head, torso, feet — sits inside the
+// portrait frame with room to spare. Anchored dead-center horizontally so
+// the body is mid-canvas regardless of viewport aspect.
+const MOBILE_LAYOUT = {
+  anchorX: 0,
+  cameraX: 0,
+  baseZ: 9,
+  fov: 50,
+  headXFrac: 0.5,
+  headYFrac: 0.3,
+} as const;
 
 function lerp(x: number, y: number, t: number) {
   return THREE.MathUtils.lerp(x, y, t);
@@ -39,9 +58,11 @@ function lerp(x: number, y: number, t: number) {
 function Avatar({
   mouse,
   flash,
+  anchorX,
 }: {
   mouse: { current: { x: number; y: number } };
   flash: { current: number };
+  anchorX: number;
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL, "/draco/");
   const root = useRef<THREE.Group>(null);
@@ -136,17 +157,24 @@ function Avatar({
   }, [actions, names]);
 
   // Signal WelcomeLoader (and any other consumer) that the hero avatar is
-  // ready to render. Fires once after the GLB + first frame have mounted.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raf = requestAnimationFrame(() => {
-      window.dispatchEvent(new Event("hero-ready"));
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [scene]);
+  // ready to render. Fires once after THREE rendered frames have flushed —
+  // a `[scene]` useEffect + RAF can fire before the first useFrame actually
+  // paints, leaving the loader released while the GPU is still uploading
+  // textures. The 3-frame counter inside useFrame guarantees real frames
+  // have hit the screen before we tell the loader to ramp to 100%.
+  const heroReadyFired = useRef(false);
+  const framesRendered = useRef(0);
 
   useFrame((_, delta) => {
     if (!root.current) return;
+
+    if (!heroReadyFired.current) {
+      framesRendered.current += 1;
+      if (framesRendered.current >= 3 && typeof window !== "undefined") {
+        heroReadyFired.current = true;
+        window.dispatchEvent(new Event("hero-ready"));
+      }
+    }
 
     // Head — absolute rotation each frame, fully overrides animation pose.
     if (headBone.current) {
@@ -201,7 +229,7 @@ function Avatar({
   return (
     <group
       ref={root}
-      position={[ANCHOR_X + fit.xOffset, fit.yOffset, fit.zOffset + AVATAR_FORWARD_Z]}
+      position={[anchorX + fit.xOffset, fit.yOffset, fit.zOffset + AVATAR_FORWARD_Z]}
       scale={fit.scale}
       onClick={(e) => {
         e.stopPropagation();
@@ -215,7 +243,7 @@ function Avatar({
 
 useGLTF.preload(AVATAR_URL, "/draco/");
 
-function FloorDisc() {
+function FloorDisc({ anchorX }: { anchorX: number }) {
   const ringRef = useRef<THREE.Mesh>(null);
   useFrame((state) => {
     if (!ringRef.current) return;
@@ -225,7 +253,7 @@ function FloorDisc() {
     ringRef.current.rotation.z = t * 0.2;
   });
   return (
-    <group position={[ANCHOR_X, FEET_Y, AVATAR_FORWARD_Z]}>
+    <group position={[anchorX, FEET_Y, AVATAR_FORWARD_Z]}>
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.9, 0.96, 96]} />
         <meshBasicMaterial color="#22d3ee" transparent opacity={0.55} side={THREE.DoubleSide} />
@@ -240,8 +268,12 @@ function FloorDisc() {
 
 function CameraRig({
   mouse,
+  cameraX,
+  baseZ,
 }: {
   mouse: { current: { x: number; y: number } };
+  cameraX: number;
+  baseZ: number;
 }) {
   // Look slightly ABOVE mid-body so the avatar shifts visually DOWN in the canvas —
   // gives the "came down a bit" feel while keeping the full body in frame thanks to
@@ -250,29 +282,29 @@ function CameraRig({
   useFrame((state) => {
     // Wider X/Y parallax + subtle Z bob so the avatar feels like it leans
     // out of the screen as the cursor moves.
-    const targetX = CAMERA_X + mouse.current.x * 0.22;
+    const targetX = cameraX + mouse.current.x * 0.22;
     const targetY = lookY + mouse.current.y * 0.12;
-    const targetZ = CAMERA_BASE_Z - mouse.current.y * 0.18 + Math.abs(mouse.current.x) * 0.08;
+    const targetZ = baseZ - mouse.current.y * 0.18 + Math.abs(mouse.current.x) * 0.08;
     state.camera.position.x += (targetX - state.camera.position.x) * 0.06;
     state.camera.position.y += (targetY - state.camera.position.y) * 0.06;
     state.camera.position.z += (targetZ - state.camera.position.z) * 0.04;
-    state.camera.lookAt(CAMERA_X, lookY, AVATAR_FORWARD_Z * 0.4);
+    state.camera.lookAt(cameraX, lookY, AVATAR_FORWARD_Z * 0.4);
   });
   return null;
 }
-
-// Avatar's head appears roughly here on the viewport — used as the origin for
-// cursor tracking so the head looks toward the cursor regardless of where on
-// screen the cursor is (e.g. over the heading on the left).
-// Tuned to match ANCHOR_X=2.2 / CAMERA_X=0.7 / lookY offset / camera z=7.6.
-const AVATAR_HEAD_X_FRAC = 0.66;
-const AVATAR_HEAD_Y_FRAC = 0.32;
 
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
   const flash = useRef(0);
   const [hint, setHint] = useState(true);
   const isMobile = useIsMobile();
+
+  // Pick the layout profile ONCE per render based on the current breakpoint.
+  // All downstream three.js positions, lights, cursor mapping, and camera
+  // setup read from this profile — so swapping desktop/mobile is a single-
+  // source change instead of half-a-dozen scattered ternaries.
+  const layout = isMobile ? MOBILE_LAYOUT : DESKTOP_LAYOUT;
+  const { anchorX, cameraX, baseZ, fov, headXFrac, headYFrac } = layout;
 
   useEffect(() => {
     const handleMouse = (e: MouseEvent) => {
@@ -281,19 +313,19 @@ export default function HeroScene() {
 
       // Anchor (0,0) at the avatar's on-screen head position. Piecewise
       // normalize so cursor at any screen edge maps to ±1.
-      const xOff = xFrac - AVATAR_HEAD_X_FRAC;
+      const xOff = xFrac - headXFrac;
       const xNorm =
         xOff < 0
-          ? xOff / AVATAR_HEAD_X_FRAC
-          : xOff / (1 - AVATAR_HEAD_X_FRAC);
+          ? xOff / headXFrac
+          : xOff / (1 - headXFrac);
 
-      const yOff = yFrac - AVATAR_HEAD_Y_FRAC;
+      const yOff = yFrac - headYFrac;
       // Invert Y so cursor ABOVE head → positive mouse.y (matches the
       // downstream `targetX = -my * maxX` convention: tilts head UP).
       const yNorm =
         yOff < 0
-          ? -yOff / AVATAR_HEAD_Y_FRAC
-          : -yOff / (1 - AVATAR_HEAD_Y_FRAC);
+          ? -yOff / headYFrac
+          : -yOff / (1 - headYFrac);
 
       mouse.current.x = THREE.MathUtils.clamp(xNorm, -1, 1);
       mouse.current.y = THREE.MathUtils.clamp(yNorm, -1, 1);
@@ -304,7 +336,7 @@ export default function HeroScene() {
       window.removeEventListener("mousemove", handleMouse);
       clearTimeout(hide);
     };
-  }, []);
+  }, [headXFrac, headYFrac]);
 
   return (
     <div
@@ -316,8 +348,14 @@ export default function HeroScene() {
       }}
     >
       <Canvas
+        // `key` forces a fresh Canvas (and a fresh camera) when the device
+        // breakpoint flips between mobile/desktop. Canvas `camera` props are
+        // only consumed at mount time, so without this key a user rotating
+        // from desktop-class width into mobile (or vice versa) would keep
+        // the old FOV — leaving the avatar partially out of frame.
+        key={isMobile ? "m" : "d"}
         gl={{ alpha: true, antialias: !isMobile, powerPreference: "high-performance" }}
-        camera={{ position: [CAMERA_X, 0.45, CAMERA_BASE_Z], fov: 34 }}
+        camera={{ position: [cameraX, 0.45, baseZ], fov }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}
         style={{ background: "transparent" }}
         shadows={!isMobile}
@@ -328,22 +366,22 @@ export default function HeroScene() {
         <hemisphereLight args={["#e8ecff", "#2a2444", 0.75]} />
         {/* Key light — sculpts the front of the avatar (no shadow casting, so it
             doesn't carve dark bands across the face). */}
-        <directionalLight position={[ANCHOR_X + 0.5, 4, 3]} intensity={1.4} color="#ffffff" />
+        <directionalLight position={[anchorX + 0.5, 4, 3]} intensity={1.4} color="#ffffff" />
 
         {/* RIM / BACK lights — sit BEHIND the avatar to glow along the
             silhouette edges. Physically-accurate decay=2 + wide distance so the
             falloff is smooth across skin (no harsh banding/lines on the face). */}
-        <pointLight position={[ANCHOR_X - 1.8, 2.0, -2.4]} intensity={4.5} color="#22d3ee" distance={16} decay={2} />
-        <pointLight position={[ANCHOR_X + 1.8, 1.6, -2.4]} intensity={4.2} color="#d946ef" distance={16} decay={2} />
-        <pointLight position={[ANCHOR_X, 0.4, -2.8]} intensity={2.0} color="#8b5cf6" distance={14} decay={2} />
+        <pointLight position={[anchorX - 1.8, 2.0, -2.4]} intensity={4.5} color="#22d3ee" distance={16} decay={2} />
+        <pointLight position={[anchorX + 1.8, 1.6, -2.4]} intensity={4.2} color="#d946ef" distance={16} decay={2} />
+        <pointLight position={[anchorX, 0.4, -2.8]} intensity={2.0} color="#8b5cf6" distance={14} decay={2} />
 
         {/* Front fills — soft volumetric color wash, weaker than rims so the
             silhouette stays the brightest edge. */}
-        <pointLight position={[ANCHOR_X + 2.2, 0.4, 1.8]} intensity={2.6} color="#8b5cf6" distance={12} />
-        <pointLight position={[ANCHOR_X - 1.5, 3, 1]} intensity={2.0} color="#3b82f6" distance={12} />
-        <pointLight position={[ANCHOR_X - 1.5, 1.5, 4]} intensity={1.9} color="#ffffff" distance={10} />
+        <pointLight position={[anchorX + 2.2, 0.4, 1.8]} intensity={2.6} color="#8b5cf6" distance={12} />
+        <pointLight position={[anchorX - 1.5, 3, 1]} intensity={2.0} color="#3b82f6" distance={12} />
+        <pointLight position={[anchorX - 1.5, 1.5, 4]} intensity={1.9} color="#ffffff" distance={10} />
         <spotLight
-          position={[ANCHOR_X - 1.5, 5, 3]}
+          position={[anchorX - 1.5, 5, 3]}
           angle={0.6}
           penumbra={0.8}
           intensity={2.4}
@@ -357,9 +395,9 @@ export default function HeroScene() {
             middle of the full-bleed canvas and overlap sections far below
             the Hero when the user refreshes while scrolled. */}
         <Suspense fallback={null}>
-          <Avatar mouse={mouse} flash={flash} />
+          <Avatar mouse={mouse} flash={flash} anchorX={anchorX} />
           <ContactShadows
-            position={[ANCHOR_X, FEET_Y, AVATAR_FORWARD_Z]}
+            position={[anchorX, FEET_Y, AVATAR_FORWARD_Z]}
             opacity={0.85}
             scale={5.5}
             blur={2.6}
@@ -368,8 +406,8 @@ export default function HeroScene() {
           />
         </Suspense>
 
-        <FloorDisc />
-        <CameraRig mouse={mouse} />
+        <FloorDisc anchorX={anchorX} />
+        <CameraRig mouse={mouse} cameraX={cameraX} baseZ={baseZ} />
 
         {/* Post-FX is expensive on mobile GPUs; skip it on phones/tablets.
             Desktop keeps the cinematic look (Bloom + CA + Vignette). */}
