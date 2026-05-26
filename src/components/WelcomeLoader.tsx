@@ -110,15 +110,31 @@ export default function WelcomeLoader() {
   }, [isMobile]);
 
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          key="welcome"
-          initial={{ y: 0 }}
-          exit={{ y: "-100%" }}
-          transition={{ duration: 0.45, ease: [0.76, 0, 0.24, 1] }}
-          className="fixed inset-0 z-[100] flex items-end justify-end p-8 sm:p-12 bg-[#050405]"
-        >
+    <>
+      {/* SSR-time mobile hide. `useIsMobile()` returns false during SSR
+          because `window` doesn't exist, so the SSR'd loader renders with
+          `show=true` for everyone. The client-side `setShow(false)` only
+          fires AFTER hydration, leaving phones staring at a frozen "00%"
+          for the first paint. This `<style>` ships inline with the SSR'd
+          HTML and applies before any JS runs, so on phones / touch-primary
+          devices the loader is `display:none` from frame 0 — never painted,
+          never seen. The JS state machine still flips `show` to false for
+          AnimatePresence cleanup, but the user never witnesses it. */}
+      <style>{`
+        @media (max-width: 767px), (hover: none) and (pointer: coarse) {
+          [data-welcome-loader] { display: none !important; }
+        }
+      `}</style>
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            key="welcome"
+            data-welcome-loader
+            initial={{ y: 0 }}
+            exit={{ y: "-100%" }}
+            transition={{ duration: 0.45, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 z-[100] flex items-end justify-end p-8 sm:p-12 bg-[#050405]"
+          >
           {/* Subtle ambient cyan/violet glow */}
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[60vmin] rounded-full bg-cyan-500/12 blur-[120px]" />
@@ -157,8 +173,9 @@ export default function WelcomeLoader() {
             className="absolute bottom-0 left-0 h-px bg-gradient-to-r from-cyan-400 via-violet-400 to-blue-400 transition-[width] duration-100 ease-linear"
             style={{ width: `${count}%` }}
           />
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
