@@ -5,17 +5,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
- * Moncy-style full-page loader. Counter ramps to 90% on its own pace, then
- * holds there until the Hero scene finishes loading (listens for the
- * `hero-ready` event dispatched by HeroScene once the avatar GLB + first
- * frame are mounted). Falls back to dismissing after 10s so the user is
- * never stuck on a stalled WebGL load.
+ * Lean full-page loader. The counter ramps to 85% on its own pace, then
+ * holds until `hero-ready` fires (HeroScene flushed its first frame) and
+ * runs the final 85→100 ramp before sliding off. 4 s hard fallback so a
+ * stalled WebGL boot never strands the user.
+ *
+ * Intentionally NOT gated on `window.load` or `document.fonts.ready` — those
+ * signals waited on every image and every webfont decode, adding 1.5–3 s
+ * on top of an already-visible page without blocking anything the user
+ * actually sees behind the curtain.
  *
  * Mobile DOES NOT render the loader at all. Phones no longer mount the 3D
  * avatar (just a ~39 KB transparent WebP), so there's no heavy boot to
- * mask — the loader only delayed the first usable frame. The initial
- * `show` state is derived synchronously from `isMobile`, so on touch
- * devices the loader markup never even renders.
+ * mask. The initial `show` state is derived synchronously from `isMobile`,
+ * so on touch devices the loader markup never even renders.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
@@ -38,102 +41,48 @@ export default function WelcomeLoader() {
     // Skip the heavy ramp/wait machinery on mobile — it's already hidden.
     if (isMobile) return;
 
-    // The loader holds at 90% until ALL of these signals fire:
-    //   1. `hero-ready` — HeroScene has flushed 3 rendered frames (the GLB
-    //                     is on screen, not just uploaded to the GPU)
-    //   2. window `load` — every sync resource (HTML, CSS, images) finished
-    //   3. `fonts.ready` — every webfont is decoded so text isn't FOUT-ing
-    //                       under the loader exit
-    //   4. `buffer` — a short dwell AFTER 1–3 so the React tree has a beat
-    //                  to paint section content (avoids the "loader hides
-    //                  and the page is still snapping into place" flash)
-    // 10s hard fallback releases regardless so the user is never stranded.
-    const flags = { hero: false, win: false, fonts: false, buffer: false };
+    // The loader holds at 85% until the Hero scene flushes its first frame
+    // (`hero-ready`). Once that fires we ramp straight through to 100 and
+    // exit — no font wait, no idle-callback buffer, no extra dwell. Those
+    // gates were adding 1.5–3 s on top of an already-loaded page. Window
+    // `load` and `fonts.ready` were the slowest signals (waiting on every
+    // image, every webfont decode) yet they didn't actually block the Hero
+    // from being visually correct.
+    let heroReady = false;
     const markHero = () => {
-      flags.hero = true;
+      heroReady = true;
     };
-    const markWin = () => {
-      flags.win = true;
-    };
-
     window.addEventListener("hero-ready", markHero);
-    if (document.readyState === "complete") {
-      flags.win = true;
-    } else {
-      window.addEventListener("load", markWin);
-    }
 
-    // Webfonts: resolve `document.fonts.ready` (Inter, Space Grotesk,
-    // JetBrains Mono). Older browsers without FontFace API fall through to
-    // `fonts = true` immediately so we don't strand the loader.
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready
-        .then(() => {
-          flags.fonts = true;
-        })
-        .catch(() => {
-          flags.fonts = true;
-        });
-    } else {
-      flags.fonts = true;
-    }
-
-    // Buffer: once hero + win + fonts are all green, wait for an idle frame
-    // PLUS ~1s dwell before green-lighting the final 90→100 ramp. The idle
-    // callback ensures the main thread is no longer pegged by React work
-    // (initial section paints, Framer animations starting), and the 1s dwell
-    // gives below-the-fold sections a beat to finish hydrating so the page
-    // doesn't visibly snap into place the instant the curtain slides off.
-    let bufferTimer: ReturnType<typeof setTimeout> | null = null;
-    type IdleWindow = Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
-    };
-    const armBuffer = () => {
-      if (bufferTimer) return;
-      bufferTimer = setTimeout(() => {
-        const w = window as IdleWindow;
-        const finish = () => {
-          flags.buffer = true;
-        };
-        if (typeof w.requestIdleCallback === "function") {
-          w.requestIdleCallback(finish, { timeout: 600 });
-        } else {
-          finish();
-        }
-      }, 1000);
-    };
-
+    // 4 s hard fallback releases regardless so the user is never stranded
+    // on a stalled WebGL boot. Down from 10 s — if the avatar hasn't
+    // rendered in 4 s, something is wrong and we'd rather show the page.
     const maxTimeout = setTimeout(() => {
-      flags.hero = true;
-      flags.win = true;
-      flags.fonts = true;
-      flags.buffer = true;
-    }, 10000);
+      heroReady = true;
+    }, 4000);
 
+    // Tick is 32 ms with 5–14 increments, so the bar reaches 85 in roughly
+    // ~0.4 s and 100 in ~0.6 s — fast enough that on a warm cache the
+    // loader is effectively a brief flash rather than a forced wait.
     let v = 0;
     const tick = setInterval(() => {
-      const coreReady = flags.hero && flags.win && flags.fonts;
-      if (coreReady) armBuffer();
-      const allReady = coreReady && flags.buffer;
-      const cap = allReady ? 100 : 90;
+      const cap = heroReady ? 100 : 85;
       if (v >= cap) {
         if (v >= 100) {
           clearInterval(tick);
-          // Small dwell at 100% so the user sees the full bar before exit.
-          setTimeout(() => setShow(false), 400);
+          // 120 ms dwell at 100% so the user sees the full bar before exit.
+          setTimeout(() => setShow(false), 120);
         }
         return;
       }
-      v += Math.floor(Math.random() * 6) + 2;
+      v += Math.floor(Math.random() * 10) + 5;
       if (v > cap) v = cap;
       setCount(v);
-    }, 55);
+    }, 32);
 
     return () => {
       window.removeEventListener("hero-ready", markHero);
-      window.removeEventListener("load", markWin);
       clearTimeout(maxTimeout);
-      if (bufferTimer) clearTimeout(bufferTimer);
       clearInterval(tick);
     };
   }, [isMobile]);
@@ -145,7 +94,7 @@ export default function WelcomeLoader() {
           key="welcome"
           initial={{ y: 0 }}
           exit={{ y: "-100%" }}
-          transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
+          transition={{ duration: 0.45, ease: [0.76, 0, 0.24, 1] }}
           className="fixed inset-0 z-[100] flex items-end justify-end p-8 sm:p-12 bg-[#050405]"
         >
           {/* Subtle ambient cyan/violet glow */}

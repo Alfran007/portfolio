@@ -38,7 +38,12 @@ export default function Home() {
       <LazySection minHeight="90vh" rootMargin="400px">
         <Certifications />
       </LazySection>
-      <LazySection minHeight="100vh" rootMargin="400px">
+      {/* Contact gets a much bigger rootMargin (1200 px) because it owns the
+          heaviest below-fold work — BusinessmanScene + a 1 MB GLB. Mounting
+          it earlier gives the chunk + GLB time to land before the user
+          scrolls into view, eliminating the "scroll stuck on Contact"
+          stutter that mounting it close to the viewport produced. */}
+      <LazySection minHeight="100vh" rootMargin="1200px">
         <Contact />
       </LazySection>
     </>

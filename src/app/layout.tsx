@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import AmbientBackground from "@/components/AmbientBackground";
 import CustomCursor from "@/components/CustomCursor";
 import WelcomeLoader from "@/components/WelcomeLoader";
+import HeavyAssetPrefetcher from "@/components/HeavyAssetPrefetcher";
 
 const inter = Inter({
   variable: "--font-sans-stack",
@@ -87,6 +88,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col text-foreground">
         <WelcomeLoader />
+        <HeavyAssetPrefetcher />
         <AmbientBackground />
         <CustomCursor />
         <SmoothScroll>
