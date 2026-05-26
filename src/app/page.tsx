@@ -5,46 +5,42 @@ import Skills from "@/components/sections/Skills";
 import Projects from "@/components/sections/Projects";
 import Certifications from "@/components/sections/Certifications";
 import Contact from "@/components/sections/Contact";
-import LazySection from "@/components/LazySection";
 
 /**
- * Hero is the only section mounted eagerly — it owns the initial paint
- * and the WebGL avatar. Everything below the fold is wrapped in
- * `LazySection` so its motion / images / canvas work only kicks in when
- * the user scrolls toward it. This keeps the main thread free during the
- * first few seconds on mobile, where mounting all sections at once was
- * pegging CPU and keeping the browser's loading indicator spinning long
- * after the page was visually ready.
+ * Every section is mounted eagerly. We used to wrap below-the-fold
+ * sections in `LazySection` (IntersectionObserver gate) to keep the
+ * main thread free during initial paint, but that was tied to mobile
+ * WebGL — which is gone now. The remaining sections are plain HTML +
+ * framer-motion (which has its own viewport-aware `whileInView`
+ * gating), so their mount cost is trivial.
  *
- * `rootMargin` is generous (200–500 px) so the section is fully mounted
- * by the time the user reaches it — no pop-in.
+ * Lazy-mounting was also actively hurting perceived speed: after
+ * `WelcomeLoader` exited, the user saw blank placeholders for About /
+ * Experience / Skills / Projects / Certifications until they scrolled
+ * and the observer fired. The matchMedia-in-useState trick we tried to
+ * skip the gate on touch devices was unreliable because SSR runs
+ * without `window` (initial state = false), and React's hydration
+ * locks that state in. Removing the wrappers entirely means SSR'd
+ * markup is fully present and interactive the instant the loader
+ * curtain lifts.
+ *
+ * `Hero` and `Contact` are unchanged from before — `Contact` still
+ * owns the heaviest below-fold work (BusinessmanScene + a 1 MB GLB),
+ * and we deliberately mount it at page load so its chunk + GLB
+ * download + first-frame render all happen inside the WelcomeLoader
+ * window. The loader listens for `contact-ready` (dispatched by
+ * BusinessmanScene's first useFrame) and holds the curtain until that
+ * fires, so the user never sees a mid-scroll stutter on Contact.
  */
 export default function Home() {
   return (
     <>
       <Hero />
-      <LazySection minHeight="80vh" rootMargin="500px">
-        <About />
-      </LazySection>
-      <LazySection minHeight="120vh" rootMargin="400px">
-        <Experience />
-      </LazySection>
-      <LazySection minHeight="80vh" rootMargin="400px">
-        <Skills />
-      </LazySection>
-      <LazySection minHeight="100vh" rootMargin="400px">
-        <Projects />
-      </LazySection>
-      <LazySection minHeight="90vh" rootMargin="400px">
-        <Certifications />
-      </LazySection>
-      {/* Contact is NOT lazy. It owns the heaviest below-fold work
-          (BusinessmanScene + a 1 MB GLB), and we deliberately mount it at
-          page load so its chunk + GLB download + parse + first-frame
-          render all happen inside the WelcomeLoader window. The loader
-          listens for `contact-ready` (dispatched by BusinessmanScene's
-          first useFrame) and holds the curtain until that fires, so the
-          user never sees a mid-scroll stutter on Contact. */}
+      <About />
+      <Experience />
+      <Skills />
+      <Projects />
+      <Certifications />
       <Contact />
     </>
   );

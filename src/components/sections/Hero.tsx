@@ -55,7 +55,16 @@ export default function Hero() {
           entirely and shows a transparent-cutout WebP (~39 KB) so the
           page becomes interactive in well under a second on phones. */}
       <div
-        className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none select-none"
+        // top-[18vh] on mobile shifts the avatar container DOWN by ~18 % of
+        // the viewport so the face clears the "Available for AI" pill at the
+        // top of the text column. Why a top offset and not just object-
+        // position: on small phones (iPhone SE / mini) the container becomes
+        // shorter than the source image (610×1280, ~0.48 aspect) so the
+        // image fits by HEIGHT, which means object-position-Y has zero
+        // effect — the image fills the container vertically and the face
+        // pins to y=0 regardless of the % value. Pushing the container
+        // itself down works the same on every viewport size.
+        className="absolute inset-x-0 top-[18vh] -bottom-[20vh] md:top-0 md:-bottom-[38vh] z-0 pointer-events-none select-none"
         style={{
           maskImage:
             "linear-gradient(to bottom, #000 0%, #000 78%, rgba(0,0,0,0.4) 90%, transparent 98%)",

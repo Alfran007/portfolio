@@ -9,7 +9,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
  *
  *  Desktop (Hero + Contact each mount a WebGL canvas):
  *    - `hero-ready`    → ease toward 60 → 90
- *    - `contact-ready` → sprint to 100, exit
+ *    - `contact-ready` → snap to 100, exit
  *
  *  Mobile (no WebGL, just a transparent avatar image):
  *    - `hero-ready`    → dispatched by Hero's `<Image onLoad>` once the
@@ -17,11 +17,15 @@ import { useIsMobile } from "@/lib/useIsMobile";
  *    - `contact-ready` → dispatched immediately on mount by
  *                        `HeavyAssetPrefetcher` (no GLB to wait on)
  *  Both fire within a couple hundred ms on a normal connection, so the
- *  mobile loader briefly ramps 0 → 100 and exits inside ~600 ms. The
+ *  mobile loader briefly ramps 0 → 100 and exits inside ~500 ms. The
  *  user sees clear progress feedback instead of a blank dark screen
  *  while the JS bundle finishes parsing.
  *
- *  Hard fallback: 3 s on mobile (no heavy boot), 8 s on desktop.
+ *  Mobile tick is 30 ms with a 14 % step rate (vs 60 ms / 6 % on
+ *  desktop) so the bar visibly moves while the image loads instead of
+ *  crawling to 60 over ~900 ms.
+ *
+ *  Hard fallback: 1.5 s on mobile (no heavy boot), 8 s on desktop.
  *  Either way the user is never stranded behind the curtain.
  */
 export default function WelcomeLoader() {
@@ -32,13 +36,31 @@ export default function WelcomeLoader() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const heroReady = { current: false };
-    const contactReady = { current: false };
+    let heroReady = false;
+    let contactReady = false;
+    let tickInterval: ReturnType<typeof setInterval> | null = null;
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
+    let completed = false;
+
+    const tickMs = isMobile ? 30 : 60;
+    const stepFactor = isMobile ? 0.14 : 0.06;
+
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      if (tickInterval) clearInterval(tickInterval);
+      setCount(100);
+      // Tiny hold so users see the "100" land before the curtain lifts.
+      exitTimer = setTimeout(() => setShow(false), 100);
+    };
+
     const markHero = () => {
-      heroReady.current = true;
+      heroReady = true;
+      if (contactReady) complete();
     };
     const markContact = () => {
-      contactReady.current = true;
+      contactReady = true;
+      if (heroReady) complete();
     };
     window.addEventListener("hero-ready", markHero);
     window.addEventListener("contact-ready", markContact);
@@ -48,47 +70,34 @@ export default function WelcomeLoader() {
     // the user behind the loader.
     const maxTimeout = setTimeout(
       () => {
-        heroReady.current = true;
-        contactReady.current = true;
+        heroReady = true;
+        contactReady = true;
+        complete();
       },
-      isMobile ? 3000 : 8000,
+      isMobile ? 1500 : 8000,
     );
 
-    // Drive the bar directly off React state with `setCount(c => ...)` so
-    // the source of truth is React, not a closure-captured local that
-    // could desync under StrictMode double-mount.
-    //
-    // Curve in three stages: pre-hero → ease to 60, hero-only → ease to
-    // 90, both-ready → sprint to 100. Each ease shrinks step size as we
-    // approach its cap so the bar never visibly slams and pauses.
-    let exitTimer: ReturnType<typeof setTimeout> | null = null;
-    const tick = setInterval(() => {
+    // Ramp toward a moving cap while waiting for the signals. Once both
+    // signals fire, `complete()` jumps straight to 100 and exits — no
+    // staged sprint, no extra ticks. This keeps the loader's last frame
+    // honest: 100 means "ready", not "almost".
+    tickInterval = setInterval(() => {
       setCount((c) => {
-        if (heroReady.current && contactReady.current) {
-          if (c >= 100) {
-            if (!exitTimer) {
-              exitTimer = setTimeout(() => setShow(false), 120);
-            }
-            return c;
-          }
-          // Sprint to 100 in ~3 ticks (~180 ms).
-          return Math.min(100, c + Math.max(6, Math.ceil((100 - c) / 3)));
-        }
-        const cap = heroReady.current ? 90 : 60;
+        if (completed) return c;
+        const cap = heroReady ? 90 : 60;
         const remaining = Math.max(0, cap - c);
         if (remaining <= 0) return c;
-        // 6 % of remaining each tick, floor of 1, so the bar always moves.
-        const step = Math.max(1, Math.ceil(remaining * 0.06));
+        const step = Math.max(1, Math.ceil(remaining * stepFactor));
         return Math.min(cap, c + step);
       });
-    }, 60);
+    }, tickMs);
 
     return () => {
       window.removeEventListener("hero-ready", markHero);
       window.removeEventListener("contact-ready", markContact);
       clearTimeout(maxTimeout);
       if (exitTimer) clearTimeout(exitTimer);
-      clearInterval(tick);
+      if (tickInterval) clearInterval(tickInterval);
     };
   }, [isMobile]);
 
@@ -99,7 +108,7 @@ export default function WelcomeLoader() {
           key="welcome"
           initial={{ y: 0 }}
           exit={{ y: "-100%" }}
-          transition={{ duration: 0.45, ease: [0.76, 0, 0.24, 1] }}
+          transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
           className="fixed inset-0 z-[100] flex items-end justify-end p-8 sm:p-12 bg-[#050405]"
         >
           {/* Subtle ambient cyan/violet glow */}
