@@ -1,139 +1,103 @@
-# Syed Alfran Ali — 3D Portfolio
+# Syed Alfran Ali — Portfolio
 
-A dark, cinematic, glassmorphism + bento portfolio built with **Next.js 16, React 19, Three.js / React Three Fiber, Tailwind v4, Framer Motion, GSAP-ready, Lenis** smooth scrolling.
+Personal portfolio site. Cinematic dark theme, glassmorphism + bento layout, full-body 3D avatar (R3F) with cursor tracking, animated experience timeline, and an AI-first skills section.
 
-## ✨ Features
+Live: https://portfolio-alfran007.vercel.app
 
-- **3D holographic hero** — your portrait rendered onto a floating glowing disc with orbiting rings, icosahedron, distorted torus knot, sparkles, particle field, and bloom + chromatic-aberration post-processing.
-- **Lenis smooth scrolling** for a premium scroll feel.
-- **Glassmorphism + bento grid** project showcase with hover lighting.
-- **Animated experience timeline** (Walmart SSE → SWE-III → Kantar SWE).
-- **AI-first skills** section: Generative AI, Agentic AI, LLM Apps, RAG, MCP, Vector Search alongside Java/Kotlin/Spring/Azure/Kafka/Kubernetes.
-- **Certifications + Achievements** card layout.
-- **Contact form** — Web3Forms-powered with mailto fallback.
-- **Mobile-first**, accessible (reduced-motion respected, keyboard-friendly nav), SEO metadata + Open Graph.
+## Stack
 
-## 🚀 Run locally
+- **Framework** — Next.js 16 (App Router, Turbopack), React 19, TypeScript
+- **3D** — Three.js, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, Draco-compressed GLBs
+- **Styling** — Tailwind v4, Framer Motion, Lenis smooth scroll
+- **Forms** — Web3Forms (free, no backend) with `mailto:` fallback
+- **Analytics** — Vercel Web Analytics
+
+## Run locally
 
 ```bash
-# Requires Node 20+
-nvm use 20
-cd portfolio/site
-cp .env.local.example .env.local   # paste your Web3Forms access key
+# Node 22.x recommended (camera-controls dependency requires >=22)
+cp .env.local.example .env.local   # add NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY
 npm install
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Visit http://localhost:3000.
 
-## 🔐 Environment
+## Environment variables
 
-| Variable | Description | Where to get it |
-| --- | --- | --- |
-| `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` | Free key for the contact form. | https://web3forms.com (paste your email, instant key). |
+| Variable | Required | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` | No | Web3Forms access key. Without it, the contact form falls back to a `mailto:` link — the site works regardless. |
+| `NEXT_PUBLIC_SITE_URL` | No | Canonical site URL used for `metadataBase`, OpenGraph, sitemap. Defaults to the Vercel domain. |
 
-If the key is missing the form silently falls back to a `mailto:` link, so the site works without it.
-
-## 📦 Build
+## Build
 
 ```bash
 npm run build
 npm start
 ```
 
-## 🌍 Free deployment options
+## Deploy (Vercel)
 
-### Option 1 — Vercel (recommended)
-1. Push this repo to GitHub.
-2. Go to <https://vercel.com/new>, import the repo.
-3. **Root Directory**: `portfolio/site` (or move `site/*` to the repo root).
-4. Framework preset: Next.js. Build/install commands auto-detected.
-5. Add env var `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` in Project Settings → Environment Variables.
-6. Click **Deploy**. You get a free `*.vercel.app` URL and zero-config preview deployments per PR.
-
-### Option 2 — Netlify
 1. Push to GitHub.
-2. <https://app.netlify.com/start> → connect repo.
-3. **Base directory**: `portfolio/site`, **Build command**: `npm run build`, **Publish directory**: `.next`.
-4. Install the official Netlify Next.js Runtime when prompted.
-5. Add env vars in Site Settings → Environment.
+2. https://vercel.com/new → import repo → framework auto-detected as Next.js.
+3. **Install Command** override: `corepack prepare yarn@1.22.22 --activate && yarn install --network-timeout 600000` *(works around a current npm install-handler bug on Vercel + Next 16 + React 19)*.
+4. Environment variables: add `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` (and optionally `NEXT_PUBLIC_SITE_URL`) for Production / Preview / Development.
+5. Deploy.
 
-### Option 3 — Cloudflare Pages (Next on Pages)
-1. Push to GitHub.
-2. Cloudflare Pages → Create project → connect repo.
-3. Build command: `npx @cloudflare/next-on-pages@1`, Output: `.vercel/output/static`, Node 20.
-4. Add env vars in Pages Settings.
+Every push to `main` triggers an auto-redeploy.
 
-### Option 4 — GitHub Pages (static only)
-Requires switching to `output: "export"` in `next.config.ts` and removing R3F SSR/dynamic imports that need a Node runtime. Vercel/Netlify are simpler — recommended over this route.
-
-## 🧭 Project structure
+## Structure
 
 ```
-site/
+.
 ├─ public/
-│  ├─ profile.png                 # your photo
-│  └─ Syed_Alfran_Ali_Resume.pdf  # downloadable resume
+│  ├─ profile.png                 # avatar texture for desktop hero scene
+│  ├─ profile_cutout.png          # static mobile fallback image
+│  ├─ model_latest.glb            # rigged avatar (Draco-compressed)
+│  ├─ businessman.glb             # contact-section model (Draco-compressed)
+│  ├─ draco/                      # Draco WASM decoder
+│  └─ Syed_Alfran_Ali_Resume.pdf
 ├─ src/
 │  ├─ app/
-│  │  ├─ layout.tsx               # Root layout, fonts, ambient bg, smooth scroll
-│  │  ├─ page.tsx                 # Sections composition
-│  │  └─ globals.css              # Theme tokens + utilities
+│  │  ├─ layout.tsx               # Fonts, metadata, WelcomeLoader, Analytics
+│  │  ├─ page.tsx                 # Section composition
+│  │  ├─ robots.ts                # Auto-generated robots.txt
+│  │  ├─ sitemap.ts               # Auto-generated sitemap.xml
+│  │  └─ globals.css
 │  ├─ components/
-│  │  ├─ Navbar.tsx               # Sticky glass navbar + mobile menu
-│  │  ├─ Footer.tsx
-│  │  ├─ SmoothScroll.tsx         # Lenis wrapper
-│  │  ├─ AmbientBackground.tsx    # Canvas starfield + grid + glow
+│  │  ├─ Navbar.tsx · Footer.tsx · WelcomeLoader.tsx
+│  │  ├─ AmbientBackground.tsx · CustomCursor.tsx · SmoothScroll.tsx
 │  │  ├─ three/
-│  │  │  └─ HeroScene.tsx         # R3F 3D hero scene (portrait + rings + post FX)
-│  │  └─ sections/
-│  │     ├─ Hero.tsx
-│  │     ├─ About.tsx             # exports shared <SectionHeader />
-│  │     ├─ Experience.tsx
-│  │     ├─ Skills.tsx
-│  │     ├─ Projects.tsx
-│  │     ├─ Certifications.tsx
-│  │     └─ Contact.tsx
+│  │  │  ├─ HeroScene.tsx         # Rigged avatar + post FX (desktop only)
+│  │  │  └─ BusinessmanScene.tsx  # Contact-section model (desktop only)
+│  │  └─ sections/                # Hero / About / Experience / Skills / Projects / Certifications / Contact
 │  └─ lib/
-│     ├─ data.ts                  # all portfolio content lives here
+│     ├─ data.ts                  # All portfolio content (edit here)
+│     ├─ useIsMobile.ts           # Drops 3D scenes on phones/tablets
 │     └─ cn.ts
-└─ .env.local.example
 ```
 
-## ✍️ Editing your content
+## Editing content
 
-Everything is centralised in `src/lib/data.ts`:
+Everything user-facing lives in `src/lib/data.ts`:
 
 - `profile` — name, role, taglines, socials, resume path.
-- `experiences` — array of timeline entries.
-- `skillGroups` — categorised skills incl. **AI / GenAI / Agentic**.
-- `projects` — bento grid items (`size`: `wide` | `tall` | `normal` for layout variety).
+- `experiences` — timeline entries.
+- `skillGroups` — categorized skills (AI / Languages / Backend / Cloud / Data / Frontend).
+- `projects` — bento grid (`size: wide | tall | normal`).
 - `certifications`, `achievements`, `education`.
 
-To change the **photo** drop a new file at `public/profile.png` (any aspect — it's used in the About card 4:5 and on the 3D portrait disc).
+Drop a new photo at `public/profile.png` to swap the avatar texture. To replace the rigged 3D model, export a Mixamo-compatible GLB and place at `public/model_latest.glb` (auto-fits via bounding box).
 
-## 🎨 Theming
+## Performance notes
 
-Edit CSS custom properties in `src/app/globals.css`:
+- 3D scenes are dynamic-imported with `ssr: false` — no Three.js bundle on the server.
+- Mobile / touch devices skip WebGL entirely (`useIsMobile` hook) and show a static cutout image.
+- GLBs are Draco-compressed (~70-96% size reduction).
+- `prefers-reduced-motion` honored by Framer Motion + Lenis.
+- Images served via `next/image` with priority hints on above-the-fold assets.
 
-- `--background` / `--background-2` — base dark colors.
-- `--accent-cyan` / `--accent-violet` / `--accent-blue` / `--accent-magenta` — neon accents.
+## License
 
-## 🧪 Performance & a11y notes
-
-- 3D scene is `dynamic(..., { ssr: false })` to avoid hydrating Three.js on the server.
-- `prefers-reduced-motion` disables animations.
-- Lazy WebGL — no Canvas mount until Hero is in viewport (Next dynamic import handles this).
-- Images use `next/image` with priority on the hero portrait.
-- All interactive elements have visible focus rings (Tailwind defaults preserved).
-
-## 🪪 Credits
-
-- 3D — [three.js](https://threejs.org) · [@react-three/fiber](https://r3f.docs.pmnd.rs) · [@react-three/drei](https://drei.docs.pmnd.rs) · [@react-three/postprocessing](https://github.com/pmndrs/postprocessing).
-- Motion — [Framer Motion](https://www.framer.com/motion/).
-- Smooth scroll — [Lenis](https://lenis.darkroom.engineering/).
-- Icons — [Lucide](https://lucide.dev) + [react-icons](https://react-icons.github.io/react-icons/).
-
----
-
-© Syed Alfran Ali — built with Next.js, R3F, and a lot of cyan.
+MIT — content (text, resume, photos) © Syed Alfran Ali.

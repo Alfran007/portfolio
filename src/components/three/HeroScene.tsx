@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, useAnimations, Html, ContactShadows } from "@react-three/drei";
+import { useGLTF, useAnimations, ContactShadows } from "@react-three/drei";
 import {
   EffectComposer,
   Bloom,
@@ -250,17 +250,6 @@ function CameraRig({
   return null;
 }
 
-function AvatarLoading() {
-  return (
-    <Html center>
-      <div className="font-mono text-xs text-cyan-300/80 tracking-widest flex items-center gap-2">
-        <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-        LOADING AVATAR…
-      </div>
-    </Html>
-  );
-}
-
 // Avatar's head appears roughly here on the viewport — used as the origin for
 // cursor tracking so the head looks toward the cursor regardless of where on
 // screen the cursor is (e.g. over the heading on the left).
@@ -350,7 +339,12 @@ export default function HeroScene() {
           distance={14}
         />
 
-        <Suspense fallback={<AvatarLoading />}>
+        {/* Suspense fallback intentionally null — WelcomeLoader covers the
+            initial paint, and the dynamic() wrapper around HeroScene already
+            shows a soft glow pulse. A text fallback here would float in the
+            middle of the full-bleed canvas and overlap sections far below
+            the Hero when the user refreshes while scrolled. */}
+        <Suspense fallback={null}>
           <Avatar mouse={mouse} flash={flash} />
           <ContactShadows
             position={[ANCHOR_X, FEET_Y, AVATAR_FORWARD_Z]}
