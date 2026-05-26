@@ -22,23 +22,42 @@ export default function WelcomeLoader() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const onReady = () => {
-      readyRef.current = true;
+    // The loader holds at 90% until ALL of these signals fire:
+    //   1. `hero-ready`   — HeroScene has mounted its GLB + first frame
+    //   2. window `load`  — all sync resources (HTML, CSS, fonts, images)
+    //                        finished loading
+    // Both signals are required so the loader covers the actual paint, not
+    // just the avatar bytes. A 10s fallback releases the loader regardless
+    // so it never strands the page on a stalled network.
+    const flags = { hero: false, win: false };
+    const markHero = () => {
+      flags.hero = true;
     };
-    window.addEventListener("hero-ready", onReady);
-    // Fallback — never block the page for more than 5s even if the avatar
-    // event never fires (slow network, decoding error, etc.).
+    const markWin = () => {
+      flags.win = true;
+    };
+
+    window.addEventListener("hero-ready", markHero);
+    if (document.readyState === "complete") {
+      flags.win = true;
+    } else {
+      window.addEventListener("load", markWin);
+    }
+
     const maxTimeout = setTimeout(() => {
-      readyRef.current = true;
-    }, 5000);
+      flags.hero = true;
+      flags.win = true;
+    }, 10000);
 
     let v = 0;
     const tick = setInterval(() => {
-      const cap = readyRef.current ? 100 : 90;
+      const allReady = flags.hero && flags.win;
+      const cap = allReady ? 100 : 90;
       if (v >= cap) {
         if (v >= 100) {
           clearInterval(tick);
-          setTimeout(() => setShow(false), 350);
+          // Small dwell at 100% so the user sees the full bar before exit.
+          setTimeout(() => setShow(false), 400);
         }
         return;
       }
@@ -48,7 +67,8 @@ export default function WelcomeLoader() {
     }, 55);
 
     return () => {
-      window.removeEventListener("hero-ready", onReady);
+      window.removeEventListener("hero-ready", markHero);
+      window.removeEventListener("load", markWin);
       clearTimeout(maxTimeout);
       clearInterval(tick);
     };
