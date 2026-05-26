@@ -53,6 +53,48 @@ body {
   overflow-x: hidden;
 }
 
+/* Mobile paint-cost overrides.
+ *
+ * On phones the combination of (a) three large radial gradients with
+ * `background-attachment: fixed` and (b) ~20 `backdrop-filter: blur()`
+ * layers from `.glass` / `.glass-strong` overwhelms the GPU
+ * compositor. The DOM and SSR HTML arrive instantly, but the browser
+ * holds painting of the below-fold tiles for several seconds while it
+ * blends every backdrop-filter against the fixed background — the
+ * user sees Hero, then a blank gap, then content "pops in" once
+ * composition completes. The native browser loading bar stays up
+ * during this paint stall.
+ *
+ * Strategy: drop the expensive effects on mobile.
+ *   - `background-attachment: scroll` instead of `fixed` (no
+ *     re-rasterization on scroll)
+ *   - kill the three fullscreen radial gradients on body
+ *   - replace `backdrop-filter` with a translucent solid background
+ *     for `.glass*` (visually almost identical, ~0 paint cost)
+ *
+ * Desktop keeps the full effect. The media query targets the same
+ * "phone" definition the JS uses (touch + coarse pointer OR small
+ * viewport).
+ */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  body {
+    background: var(--background);
+    background-attachment: scroll;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.045);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-strong {
+    background: rgba(20, 24, 36, 0.78);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
