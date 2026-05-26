@@ -91,6 +91,15 @@ export default function Hero() {
             className="object-contain object-[center_78%] opacity-90"
             style={{ filter: "saturate(0.92) contrast(1.05) brightness(0.96)" }}
             draggable={false}
+            // Mobile equivalent of the desktop "hero-ready" signal — fires
+            // when the cutout WebP has actually decoded so WelcomeLoader can
+            // ramp past 60 instead of idling. Without this the bar would
+            // sit at 60 on phones until the 3 s fallback released it.
+            onLoad={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("hero-ready"));
+              }
+            }}
           />
         ) : (
           <HeroScene />

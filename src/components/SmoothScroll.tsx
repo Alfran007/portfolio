@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import Lenis from "lenis";
 
 /**
  * Lenis-powered smooth scroll on desktop only. On touch devices we leave the
@@ -9,6 +8,9 @@ import Lenis from "lenis";
  * cancels the OS momentum kernel, and runs a continuous rAF loop, which on
  * phones translates to "scroll feels laggy, page feels stuck". Native iOS /
  * Android scroll is already buttery; we just stay out of the way.
+ *
+ * Lenis is dynamically imported inside the effect so its ~7 KB never lands
+ * in the mobile bundle. Touch devices return before the import fires.
  */
 export default function SmoothScroll({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -18,23 +20,30 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
       window.matchMedia("(max-width: 768px)").matches;
     if (touch) return;
 
-    const lenis = new Lenis({
-      duration: 1.2,
-      smoothWheel: true,
-      // easing curve roughly equivalent to easeOutExpo
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    let rafId = 0;
+    let lenisInstance: { raf: (t: number) => void; destroy: () => void } | null = null;
+    let cancelled = false;
+
+    import("lenis").then(({ default: Lenis }) => {
+      if (cancelled) return;
+      lenisInstance = new Lenis({
+        duration: 1.2,
+        smoothWheel: true,
+        // easing curve roughly equivalent to easeOutExpo
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      });
+
+      const raf = (time: number) => {
+        lenisInstance?.raf(time);
+        rafId = requestAnimationFrame(raf);
+      };
+      rafId = requestAnimationFrame(raf);
     });
 
-    let rafId = 0;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-    rafId = requestAnimationFrame(raf);
-
     return () => {
+      cancelled = true;
       cancelAnimationFrame(rafId);
-      lenis.destroy();
+      lenisInstance?.destroy();
     };
   }, []);
 
