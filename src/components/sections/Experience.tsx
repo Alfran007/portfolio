@@ -30,8 +30,8 @@ export default function Experience() {
                   key={`${exp.company}-${exp.role}`}
                   initial={{ opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  viewport={{ once: true, amount: 0.05, margin: "200px" }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                   className={`relative grid sm:grid-cols-2 gap-4 sm:gap-8`}
                 >
                   {/* Dot */}

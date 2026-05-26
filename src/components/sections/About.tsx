@@ -33,7 +33,7 @@ export default function About() {
           <motion.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.05, margin: "200px" }}
             variants={fadeUp}
             className="lg:col-span-5"
           >
@@ -70,7 +70,7 @@ export default function About() {
           <motion.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.05, margin: "200px" }}
             variants={fadeUp}
             custom={1}
             className="lg:col-span-7 space-y-5"

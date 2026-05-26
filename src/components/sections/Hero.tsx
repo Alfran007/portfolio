@@ -55,16 +55,7 @@ export default function Hero() {
           entirely and shows a transparent-cutout WebP (~39 KB) so the
           page becomes interactive in well under a second on phones. */}
       <div
-        // top-[18vh] on mobile shifts the avatar container DOWN by ~18 % of
-        // the viewport so the face clears the "Available for AI" pill at the
-        // top of the text column. Why a top offset and not just object-
-        // position: on small phones (iPhone SE / mini) the container becomes
-        // shorter than the source image (610×1280, ~0.48 aspect) so the
-        // image fits by HEIGHT, which means object-position-Y has zero
-        // effect — the image fills the container vertically and the face
-        // pins to y=0 regardless of the % value. Pushing the container
-        // itself down works the same on every viewport size.
-        className="absolute inset-x-0 top-[18vh] -bottom-[20vh] md:top-0 md:-bottom-[38vh] z-0 pointer-events-none select-none"
+        className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none select-none"
         style={{
           maskImage:
             "linear-gradient(to bottom, #000 0%, #000 78%, rgba(0,0,0,0.4) 90%, transparent 98%)",
@@ -79,32 +70,35 @@ export default function Hero() {
           <div className="absolute right-[18%] top-[45%] -translate-y-1/2 size-[40vmin] rounded-full bg-white/[0.04] blur-[140px]" />
         </div>
         {isMobile ? (
-          // Transparent-cutout WebP (~39 KB). With no background the figure
-          // floats over the dark theme + cyan/violet halos above, matching
-          // the desktop 3D avatar's "submerged in the ambient backdrop"
-          // feel. A light filter (slightly reduced saturation + a touch of
-          // contrast) keeps the photo from looking like a too-bright office
-          // shot against the deep navy page.
+          // Transparent-cutout WebP (~46 KB).
+          //
+          // Positioning approach: we sidestep `fill` + `object-contain` because
+          // on small phones (iPhone SE / mini) the container ended up
+          // shorter than the source image (610×1280 = ~0.48 aspect), which
+          // forced object-contain into fit-by-height mode — at that point
+          // object-position-Y is a no-op and the head pinned itself to
+          // y=0, landing dead-centre behind the "Available for AI" pill.
+          //
+          // Instead we render the image at an explicit `h-[72vh]` with
+          // width auto-scaling from the intrinsic aspect ratio, then
+          // absolute-position it at `top-[22vh]`. The face sits at roughly
+          // 22 + 0.12 * 72 = ~31 vh down the section regardless of phone
+          // size, while the "Available for AI" pill ends around
+          // (112 px + ~30 px pill height) ≈ 26 vh on a 568 px iPhone SE
+          // and ≈ 18 vh on a 852 px iPhone 14. Clear gap on every device.
           <Image
             src="/avatar-mobile-v3.webp"
             alt="Syed Alfran Ali"
-            fill
+            width={610}
+            height={1280}
             priority
-            sizes="100vw"
-            // `object-[center_92%]` anchors the figure near the bottom of
-            // the avatar container so the head clears the "Available for
-            // AI…" status pill at the top of the text column on phones.
-            // 78 % wasn't enough (pill still landed across the eyes); 92 %
-            // gives ~50 px of breathing room between pill bottom and face
-            // while still keeping the head inside the opaque area of the
-            // mask gradient (which doesn't start fading until 78 %).
-            className="object-contain object-[center_92%] opacity-90"
+            sizes="(max-width: 768px) 50vh, 0px"
+            className="absolute left-1/2 -translate-x-1/2 top-[22vh] h-[72vh] w-auto max-w-none opacity-90"
             style={{ filter: "saturate(0.92) contrast(1.05) brightness(0.96)" }}
             draggable={false}
             // Mobile equivalent of the desktop "hero-ready" signal — fires
             // when the cutout WebP has actually decoded so WelcomeLoader can
-            // ramp past 60 instead of idling. Without this the bar would
-            // sit at 60 on phones until the 3 s fallback released it.
+            // ramp past its mid-cap instead of idling there.
             onLoad={() => {
               if (typeof window !== "undefined") {
                 window.dispatchEvent(new Event("hero-ready"));

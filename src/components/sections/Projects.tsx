@@ -38,8 +38,8 @@ export default function Projects() {
               key={p.title}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.5, delay: (i % 6) * 0.05 }}
+              viewport={{ once: true, amount: 0.05, margin: "200px" }}
+              transition={{ duration: 0.35, delay: (i % 6) * 0.04 }}
               className={`group relative rounded-2xl glass overflow-hidden p-6 flex flex-col justify-between hover:bg-white/[0.06] transition-all ${sizeMap[p.size] ?? ""}`}
             >
               <div

@@ -89,8 +89,8 @@ export default function Contact() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
+            viewport={{ once: true, amount: 0.05, margin: "200px" }}
+            transition={{ duration: 0.4 }}
             className="lg:col-span-5 space-y-5"
           >
             <p className="text-white/70 leading-relaxed">
@@ -172,8 +172,8 @@ export default function Contact() {
             onSubmit={handleSubmit}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            viewport={{ once: true, amount: 0.05, margin: "200px" }}
+            transition={{ duration: 0.4, delay: 0.08 }}
             className="lg:col-span-7 glass-strong rounded-3xl p-6 sm:p-8 space-y-4"
           >
             {/* Honeypot */}

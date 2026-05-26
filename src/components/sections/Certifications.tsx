@@ -43,8 +43,8 @@ export default function Certifications() {
                   key={c.title}
                   initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                  viewport={{ once: true, amount: 0.05, margin: "200px" }}
+                  transition={{ duration: 0.35, delay: i * 0.04 }}
                   className="glass rounded-xl p-4 hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="flex items-start gap-3">
@@ -79,8 +79,8 @@ export default function Certifications() {
                     key={i}
                     initial={{ opacity: 0, x: 8 }}
                     whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, amount: 0.5 }}
-                    transition={{ duration: 0.4, delay: i * 0.04 }}
+                    viewport={{ once: true, amount: 0.05, margin: "200px" }}
+                    transition={{ duration: 0.3, delay: i * 0.03 }}
                     className="pl-4 relative"
                   >
                     <span className="absolute left-0 top-2 size-1.5 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500" />

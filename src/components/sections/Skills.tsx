@@ -49,8 +49,8 @@ export default function Skills() {
               key={g.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
+              viewport={{ once: true, amount: 0.05, margin: "200px" }}
+              transition={{ duration: 0.35, delay: i * 0.04 }}
               className="glass rounded-2xl p-5 relative overflow-hidden group"
             >
               <div

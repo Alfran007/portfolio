@@ -5,28 +5,39 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
- * Full-page loader. Two signal lanes feed the same bar:
+ * Full-page loader. THREE signal lanes feed the same bar — the previous
+ * two-signal version (hero + contact) was exiting the moment the hero
+ * image had decoded, leaving fonts, below-fold images, framer-motion
+ * boot work, and CSS chunks still streaming in. The user saw the curtain
+ * lift onto a half-rendered page with the browser's tab-loading spinner
+ * still active.
  *
- *  Desktop (Hero + Contact each mount a WebGL canvas):
- *    - `hero-ready`    → ease toward 60 → 90
- *    - `contact-ready` → snap to 100, exit
+ *  - `hero-ready`    → hero asset has been painted
+ *                        - Desktop: HeroScene's 3rd useFrame
+ *                        - Mobile: `<Image onLoad>` on the WebP cutout
+ *  - `contact-ready` → contact asset has been painted
+ *                        - Desktop: BusinessmanScene's 3rd useFrame
+ *                        - Mobile: `HeavyAssetPrefetcher` (immediate)
+ *  - `window.load`   → the browser itself agrees that all initial
+ *                      subresources (fonts, images, CSS, JS chunks) are
+ *                      done loading. This is the same signal that stops
+ *                      the browser tab's loading indicator, so by waiting
+ *                      on it the in-page loader stays in sync with the
+ *                      browser's own loading state.
  *
- *  Mobile (no WebGL, just a transparent avatar image):
- *    - `hero-ready`    → dispatched by Hero's `<Image onLoad>` once the
- *                        46 KB cutout has decoded
- *    - `contact-ready` → dispatched immediately on mount by
- *                        `HeavyAssetPrefetcher` (no GLB to wait on)
- *  Both fire within a couple hundred ms on a normal connection, so the
- *  mobile loader briefly ramps 0 → 100 and exits inside ~500 ms. The
- *  user sees clear progress feedback instead of a blank dark screen
- *  while the JS bundle finishes parsing.
+ *  Ramp cap is staged by how many signals have fired:
+ *    0 ready → cap 30 (early — before anything paints)
+ *    1 ready → cap 60
+ *    2 ready → cap 90
+ *    all 3   → snap to 100, exit
  *
  *  Mobile tick is 30 ms with a 14 % step rate (vs 60 ms / 6 % on
- *  desktop) so the bar visibly moves while the image loads instead of
- *  crawling to 60 over ~900 ms.
+ *  desktop) so the bar visibly moves between signals instead of feeling
+ *  stuck at a cap.
  *
- *  Hard fallback: 1.5 s on mobile (no heavy boot), 8 s on desktop.
- *  Either way the user is never stranded behind the curtain.
+ *  Hard fallback: 4 s on mobile, 10 s on desktop — generous enough to
+ *  let `window.load` fire on a normal connection, but short enough that
+ *  a stalled third-party resource can't strand the user behind the curtain.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
@@ -38,6 +49,7 @@ export default function WelcomeLoader() {
 
     let heroReady = false;
     let contactReady = false;
+    let pageLoaded = document.readyState === "complete";
     let tickInterval: ReturnType<typeof setInterval> | null = null;
     let exitTimer: ReturnType<typeof setTimeout> | null = null;
     let completed = false;
@@ -45,46 +57,60 @@ export default function WelcomeLoader() {
     const tickMs = isMobile ? 30 : 60;
     const stepFactor = isMobile ? 0.14 : 0.06;
 
+    const readyCount = () =>
+      (heroReady ? 1 : 0) + (contactReady ? 1 : 0) + (pageLoaded ? 1 : 0);
+
     const complete = () => {
       if (completed) return;
       completed = true;
       if (tickInterval) clearInterval(tickInterval);
       setCount(100);
       // Tiny hold so users see the "100" land before the curtain lifts.
-      exitTimer = setTimeout(() => setShow(false), 100);
+      exitTimer = setTimeout(() => setShow(false), 120);
+    };
+
+    const tryComplete = () => {
+      if (heroReady && contactReady && pageLoaded) complete();
     };
 
     const markHero = () => {
       heroReady = true;
-      if (contactReady) complete();
+      tryComplete();
     };
     const markContact = () => {
       contactReady = true;
-      if (heroReady) complete();
+      tryComplete();
+    };
+    const markLoad = () => {
+      pageLoaded = true;
+      tryComplete();
     };
     window.addEventListener("hero-ready", markHero);
     window.addEventListener("contact-ready", markContact);
+    if (!pageLoaded) window.addEventListener("load", markLoad);
 
-    // Hard fallback — shorter on mobile because there's no GLB / WebGL boot
-    // to cover. A stalled font / image / chunk download can never strand
-    // the user behind the loader.
+    // Hard fallback — generous enough to let window.load fire on a normal
+    // connection, but bounded so a stalled third-party resource can't
+    // strand the user.
     const maxTimeout = setTimeout(
       () => {
         heroReady = true;
         contactReady = true;
+        pageLoaded = true;
         complete();
       },
-      isMobile ? 1500 : 8000,
+      isMobile ? 4000 : 10000,
     );
 
-    // Ramp toward a moving cap while waiting for the signals. Once both
-    // signals fire, `complete()` jumps straight to 100 and exits — no
-    // staged sprint, no extra ticks. This keeps the loader's last frame
-    // honest: 100 means "ready", not "almost".
+    // Ramp toward a cap that depends on how many signals have fired. The
+    // bar always moves visibly during the wait, but it can't ever reach
+    // 100 until everything is truly ready — so "100" honestly means the
+    // page is interactive.
     tickInterval = setInterval(() => {
       setCount((c) => {
         if (completed) return c;
-        const cap = heroReady ? 90 : 60;
+        const ready = readyCount();
+        const cap = [30, 60, 90, 100][ready];
         const remaining = Math.max(0, cap - c);
         if (remaining <= 0) return c;
         const step = Math.max(1, Math.ceil(remaining * stepFactor));
@@ -95,6 +121,7 @@ export default function WelcomeLoader() {
     return () => {
       window.removeEventListener("hero-ready", markHero);
       window.removeEventListener("contact-ready", markContact);
+      window.removeEventListener("load", markLoad);
       clearTimeout(maxTimeout);
       if (exitTimer) clearTimeout(exitTimer);
       if (tickInterval) clearInterval(tickInterval);
