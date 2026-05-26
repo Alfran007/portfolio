@@ -8,7 +8,6 @@ import { FaGithub, FaLinkedinIn } from "react-icons/fa";
 import { SiCredly } from "react-icons/si";
 import { profile } from "@/lib/data";
 import { SectionHeader } from "./About";
-import { useIsMobile } from "@/lib/useIsMobile";
 
 const BusinessmanScene = dynamic(() => import("@/components/three/BusinessmanScene"), {
   ssr: false,
@@ -24,7 +23,6 @@ export default function Contact() {
   const [status, setStatus] = useState<Status>("idle");
   const [errMsg, setErrMsg] = useState<string>("");
   const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY;
-  const isMobile = useIsMobile();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -144,24 +142,22 @@ export default function Contact() {
               </a>
             </div>
 
-            {/* 3D businessman — desktop only. On phones the model is dropped
-                to save bandwidth/battery; the caption alone communicates the
-                same intent without the WebGL cost. */}
-            {!isMobile && (
-              <div className="relative pt-4">
-                <div aria-hidden className="pointer-events-none absolute inset-0">
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[70%] rounded-full bg-cyan-500/15 blur-[90px]" />
-                  <div className="absolute left-[55%] top-[58%] -translate-x-1/2 -translate-y-1/2 size-[55%] rounded-full bg-violet-500/12 blur-[80px]" />
-                </div>
-                <div className="relative w-full aspect-square max-w-[360px] mx-auto sm:mx-0">
-                  <BusinessmanScene cameraZ={4.6} />
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-[10px] font-mono tracking-[0.2em] uppercase text-cyan-300/70">
-                  <span className="size-1 rounded-full bg-cyan-400 animate-pulse" />
-                  Open to opportunities · Let's connect
-                </div>
+            {/* 3D businessman — shown on all viewports. The scene itself
+                lowers DPR and drops post-FX on mobile to keep the frame rate
+                acceptable without sacrificing the silhouette. */}
+            <div className="relative pt-4">
+              <div aria-hidden className="pointer-events-none absolute inset-0">
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[70%] rounded-full bg-cyan-500/15 blur-[90px]" />
+                <div className="absolute left-[55%] top-[58%] -translate-x-1/2 -translate-y-1/2 size-[55%] rounded-full bg-violet-500/12 blur-[80px]" />
               </div>
-            )}
+              <div className="relative w-full aspect-square max-w-[280px] sm:max-w-[360px] mx-auto sm:mx-0">
+                <BusinessmanScene cameraZ={4.6} />
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-[10px] font-mono tracking-[0.2em] uppercase text-cyan-300/70">
+                <span className="size-1 rounded-full bg-cyan-400 animate-pulse" />
+                Open to opportunities · Let's connect
+              </div>
+            </div>
           </motion.div>
 
           {/* Right: form */}

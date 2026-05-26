@@ -1,38 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
- * Minimal Moncy-style loader: counter 0 → 100 in ~1.5s, then slides up.
- * No 3D, no fluff — just percentage. Plays once per browser session.
+ * Moncy-style full-page loader. Counter ramps to 90% on its own pace, then
+ * holds there until the Hero scene finishes loading (listens for the
+ * `hero-ready` event dispatched by HeroScene once the avatar GLB + first
+ * frame are mounted). Falls back to dismissing after 5s so the user is never
+ * stuck on a stalled WebGL load.
+ *
+ * Plays on every visit — no sessionStorage skip. The total time on a warm
+ * cache is ~1.5s; on a cold mobile network it stays up until the avatar is
+ * actually ready, so the page never reveals a half-loaded hero.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
   const [show, setShow] = useState(true);
+  const readyRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (sessionStorage.getItem("welcome-played") === "1") {
-      setShow(false);
-      return;
-    }
+
+    const onReady = () => {
+      readyRef.current = true;
+    };
+    window.addEventListener("hero-ready", onReady);
+    // Fallback — never block the page for more than 5s even if the avatar
+    // event never fires (slow network, decoding error, etc.).
+    const maxTimeout = setTimeout(() => {
+      readyRef.current = true;
+    }, 5000);
+
     let v = 0;
-    const id = setInterval(() => {
-      v += Math.floor(Math.random() * 12) + 6;
-      if (v >= 100) {
-        v = 100;
-        setCount(100);
-        clearInterval(id);
-        setTimeout(() => {
-          sessionStorage.setItem("welcome-played", "1");
-          setShow(false);
-        }, 350);
-      } else {
-        setCount(v);
+    const tick = setInterval(() => {
+      const cap = readyRef.current ? 100 : 90;
+      if (v >= cap) {
+        if (v >= 100) {
+          clearInterval(tick);
+          setTimeout(() => setShow(false), 350);
+        }
+        return;
       }
-    }, 35);
-    return () => clearInterval(id);
+      v += Math.floor(Math.random() * 6) + 2;
+      if (v > cap) v = cap;
+      setCount(v);
+    }, 55);
+
+    return () => {
+      window.removeEventListener("hero-ready", onReady);
+      clearTimeout(maxTimeout);
+      clearInterval(tick);
+    };
   }, []);
 
   return (
@@ -59,6 +78,17 @@ export default function WelcomeLoader() {
             className="absolute top-8 left-8 font-mono text-xs tracking-[0.35em] uppercase text-cyan-300/80"
           >
             ◉ SYED ALFRAN ALI
+          </motion.div>
+
+          {/* Loading caption — top-right, mirrors the brand mark */}
+          <motion.div
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="absolute top-8 right-8 font-mono text-[10px] tracking-[0.3em] uppercase text-white/40 flex items-center gap-2"
+          >
+            <span className="size-1 rounded-full bg-cyan-400 animate-pulse" />
+            Loading experience
           </motion.div>
 
           {/* Big percentage — bottom-right */}

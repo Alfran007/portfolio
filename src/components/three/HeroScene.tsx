@@ -10,6 +10,7 @@ import {
 } from "@react-three/postprocessing";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Hero 3D Scene — Avaturn full-body avatar.
@@ -133,6 +134,16 @@ function Avatar({
       action.fadeOut(0.3);
     };
   }, [actions, names]);
+
+  // Signal WelcomeLoader (and any other consumer) that the hero avatar is
+  // ready to render. Fires once after the GLB + first frame have mounted.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raf = requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("hero-ready"));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [scene]);
 
   useFrame((_, delta) => {
     if (!root.current) return;
@@ -261,6 +272,7 @@ export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
   const flash = useRef(0);
   const [hint, setHint] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleMouse = (e: MouseEvent) => {
@@ -304,11 +316,11 @@ export default function HeroScene() {
       }}
     >
       <Canvas
-        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+        gl={{ alpha: true, antialias: !isMobile, powerPreference: "high-performance" }}
         camera={{ position: [CAMERA_X, 0.45, CAMERA_BASE_Z], fov: 34 }}
-        dpr={[1, 2]}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         style={{ background: "transparent" }}
-        shadows
+        shadows={!isMobile}
       >
         <color attach="background" args={[0, 0, 0]} />
 
@@ -359,16 +371,20 @@ export default function HeroScene() {
         <FloorDisc />
         <CameraRig mouse={mouse} />
 
-        <EffectComposer multisampling={0}>
-          <Bloom
-            intensity={0.7}
-            luminanceThreshold={0.35}
-            luminanceSmoothing={0.92}
-            mipmapBlur
-          />
-          <ChromaticAberration offset={[0.0003, 0.0005] as unknown as [number, number]} />
-          <Vignette eskil={false} offset={0.2} darkness={0.65} />
-        </EffectComposer>
+        {/* Post-FX is expensive on mobile GPUs; skip it on phones/tablets.
+            Desktop keeps the cinematic look (Bloom + CA + Vignette). */}
+        {!isMobile && (
+          <EffectComposer multisampling={0}>
+            <Bloom
+              intensity={0.7}
+              luminanceThreshold={0.35}
+              luminanceSmoothing={0.92}
+              mipmapBlur
+            />
+            <ChromaticAberration offset={[0.0003, 0.0005] as unknown as [number, number]} />
+            <Vignette eskil={false} offset={0.2} darkness={0.65} />
+          </EffectComposer>
+        )}
       </Canvas>
 
       {hint && (

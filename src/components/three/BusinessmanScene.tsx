@@ -4,6 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, Html, ContactShadows } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Businessman model for the Contact section. The shipped GLB is a STATIC mesh
@@ -112,6 +113,7 @@ function Loading() {
 
 export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }) {
   const mouse = useRef({ x: 0, y: 0 });
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -125,9 +127,9 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
   return (
     <div className="relative w-full h-full pointer-events-none">
       <Canvas
-        gl={{ alpha: true, antialias: true }}
+        gl={{ alpha: true, antialias: !isMobile }}
         camera={{ position: [0, 0.2, cameraZ], fov: 32 }}
-        dpr={[1, 2]}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         style={{ background: "transparent" }}
       >
         <ambientLight intensity={0.85} color="#ffffff" />

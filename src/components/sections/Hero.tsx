@@ -1,12 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDown, Download, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { profile } from "@/lib/data";
-import { useIsMobile } from "@/lib/useIsMobile";
 
 const ROLES = [
   "Senior Software Engineer",
@@ -36,7 +34,6 @@ const item = {
 
 export default function Hero() {
   const [roleIdx, setRoleIdx] = useState(0);
-  const isMobile = useIsMobile();
   useEffect(() => {
     const id = setInterval(() => setRoleIdx((i) => (i + 1) % ROLES.length), 2400);
     return () => clearInterval(id);
@@ -46,10 +43,9 @@ export default function Hero() {
       id="hero"
       className="relative min-h-[100svh] flex items-center pt-28 pb-16"
     >
-      {/* FULL-BLEED 3D AVATAR — extends down into About on desktop; mask fades
-          the bottom so the floor disc + shoes don't collide with About's text.
-          On mobile we drop the heavy WebGL scene entirely and show a static
-          cutout image so phones stay fast and the layout doesn't break. */}
+      {/* FULL-BLEED 3D AVATAR — extends down into About; mask fades the bottom
+          so the floor disc + shoes don't collide with About's text. The scene
+          itself drops post-FX and lowers DPR on phones to keep frame rate up. */}
       <div
         className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none"
         style={{
@@ -65,22 +61,7 @@ export default function Hero() {
           <div className="absolute right-[6%] top-[55%] -translate-y-1/2 size-[50vmin] rounded-full bg-violet-500/20 blur-[100px]" />
           <div className="absolute right-[18%] top-[45%] -translate-y-1/2 size-[40vmin] rounded-full bg-white/[0.04] blur-[140px]" />
         </div>
-        {isMobile ? (
-          <div className="absolute inset-0 flex items-end justify-end opacity-60">
-            <div className="relative w-[80%] max-w-[420px] aspect-[3/4]">
-              <Image
-                src={profile.photoCutoutPath}
-                alt=""
-                fill
-                sizes="80vw"
-                className="object-contain object-bottom"
-                priority
-              />
-            </div>
-          </div>
-        ) : (
-          <HeroScene />
-        )}
+        <HeroScene />
       </div>
 
       {/* Left-side gradient — confined to Hero. Lighter middle band so the avatar
