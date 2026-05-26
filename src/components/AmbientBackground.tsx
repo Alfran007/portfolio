@@ -15,6 +15,16 @@ export default function AmbientBackground() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Phones / touch devices skip the live starfield entirely. The static
+    // grid + radial-gradient halos below already give the "ambient space"
+    // feel, and dropping the continuous rAF loop frees the main thread on
+    // mobile where every frame of canvas work was contributing to the
+    // "page feels stuck" experience after the loader hides.
+    const isTouch =
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+      window.matchMedia("(max-width: 768px)").matches;
+    if (isTouch) return;
+
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -39,6 +49,13 @@ export default function AmbientBackground() {
     let t = 0;
     function draw() {
       if (!ctx) return;
+      // Pause when tab is hidden — no need to burn CPU drawing stars the
+      // user can't see (and on mobile the OS will throttle us anyway, but
+      // explicit short-circuit avoids the wakeup cost on tab return).
+      if (typeof document !== "undefined" && document.hidden) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
       ctx.clearRect(0, 0, width, height);
       t += 0.005;
 

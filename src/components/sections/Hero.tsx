@@ -52,8 +52,8 @@ export default function Hero() {
     >
       {/* Avatar layer — full-bleed background that extends down into About.
           Desktop renders the live WebGL HeroScene. Mobile drops the WebGL
-          entirely and shows a pre-rendered WebP (≈ 188 KB) so the page
-          becomes interactive in under a second on phones. */}
+          entirely and shows a transparent-cutout WebP (~39 KB) so the
+          page becomes interactive in well under a second on phones. */}
       <div
         className="absolute inset-x-0 top-0 -bottom-[20vh] md:-bottom-[38vh] z-0 pointer-events-none select-none"
         style={{
@@ -70,16 +70,20 @@ export default function Hero() {
           <div className="absolute right-[18%] top-[45%] -translate-y-1/2 size-[40vmin] rounded-full bg-white/[0.04] blur-[140px]" />
         </div>
         {isMobile ? (
+          // Transparent-cutout WebP (~39 KB). With no background the figure
+          // floats over the dark theme + cyan/violet halos above, matching
+          // the desktop 3D avatar's "submerged in the ambient backdrop"
+          // feel. A light filter (slightly reduced saturation + a touch of
+          // contrast) keeps the photo from looking like a too-bright office
+          // shot against the deep navy page.
           <Image
             src="/avatar-mobile.webp"
             alt="Syed Alfran Ali"
             fill
             priority
             sizes="100vw"
-            // contain + center keeps the full figure in frame regardless of
-            // viewport aspect; pulled slightly upward so it sits above the
-            // text column rather than tangling with the bottom buttons.
-            className="object-contain object-[center_35%]"
+            className="object-contain object-[center_30%] opacity-90"
+            style={{ filter: "saturate(0.92) contrast(1.05) brightness(0.96)" }}
             draggable={false}
           />
         ) : (

@@ -12,19 +12,23 @@ import { useIsMobile } from "@/lib/useIsMobile";
  * never stuck on a stalled WebGL load.
  *
  * Mobile DOES NOT render the loader at all. Phones no longer mount the 3D
- * avatar (just a 188 KB WebP), so there's no heavy boot to mask — the
- * loader just delays the first usable frame. We dismiss it on the very
- * first client render on touch devices.
+ * avatar (just a ~39 KB transparent WebP), so there's no heavy boot to
+ * mask — the loader only delayed the first usable frame. The initial
+ * `show` state is derived synchronously from `isMobile`, so on touch
+ * devices the loader markup never even renders.
  */
 export default function WelcomeLoader() {
   const [count, setCount] = useState(0);
-  const [show, setShow] = useState(true);
   const isMobile = useIsMobile();
+  // Initial show state is derived synchronously from `isMobile` so the very
+  // first client render on a phone already has the loader hidden — no SSR
+  // → hydrate → setShow(false) flicker, no extra frame of dark curtain
+  // before the page is visible. Desktop still starts with `show=true` so
+  // the loader gates the heavy WebGL boot as before.
+  const [show, setShow] = useState(() => !isMobile);
 
-  // Mobile: skip the loader entirely once we know we're on a phone. The
-  // SSR pass still renders the loader markup (so the page doesn't flash
-  // unstyled content while JS downloads), then React hydrates, this hook
-  // resolves `isMobile = true`, and the loader unmounts immediately.
+  // If the viewport flips into mobile after mount (e.g. desktop window
+  // resize past the breakpoint), dismiss the loader immediately.
   useEffect(() => {
     if (isMobile) setShow(false);
   }, [isMobile]);
