@@ -82,7 +82,13 @@ export default function Hero() {
             fill
             priority
             sizes="100vw"
-            className="object-contain object-[center_30%] opacity-90"
+            // `object-[center_78%]` pushes the figure low in the frame so
+            // the face/eyes clear the "Available for AI…" status pill that
+            // sits at the top of the text column on phones. Lower than this
+            // and the head would dip into the mask gradient fade-out at
+            // 90 %+; higher than this and the eyes land directly behind
+            // the pill again.
+            className="object-contain object-[center_78%] opacity-90"
             style={{ filter: "saturate(0.92) contrast(1.05) brightness(0.96)" }}
             draggable={false}
           />
