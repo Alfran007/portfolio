@@ -38,14 +38,14 @@ export default function Home() {
       <LazySection minHeight="90vh" rootMargin="400px">
         <Certifications />
       </LazySection>
-      {/* Contact gets a much bigger rootMargin (1200 px) because it owns the
-          heaviest below-fold work — BusinessmanScene + a 1 MB GLB. Mounting
-          it earlier gives the chunk + GLB time to land before the user
-          scrolls into view, eliminating the "scroll stuck on Contact"
-          stutter that mounting it close to the viewport produced. */}
-      <LazySection minHeight="100vh" rootMargin="1200px">
-        <Contact />
-      </LazySection>
+      {/* Contact is NOT lazy. It owns the heaviest below-fold work
+          (BusinessmanScene + a 1 MB GLB), and we deliberately mount it at
+          page load so its chunk + GLB download + parse + first-frame
+          render all happen inside the WelcomeLoader window. The loader
+          listens for `contact-ready` (dispatched by BusinessmanScene's
+          first useFrame) and holds the curtain until that fires, so the
+          user never sees a mid-scroll stutter on Contact. */}
+      <Contact />
     </>
   );
 }

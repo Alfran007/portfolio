@@ -27,6 +27,14 @@ function lerp(a: number, b: number, t: number) {
 function BusinessmanModel({ mouse }: { mouse: { current: { x: number; y: number } } }) {
   const { scene } = useGLTF(MODEL_URL, "/draco/");
   const group = useRef<THREE.Group>(null);
+  // Counts useFrame ticks so we can dispatch `contact-ready` after the
+  // Canvas has actually flushed a few frames to screen (not just at the
+  // moment React commits — at that point the WebGL context exists but
+  // nothing has painted yet). Three frames is enough that the
+  // BusinessmanScene is visually live, so WelcomeLoader can safely fold
+  // it into the initial loading window and dismiss.
+  const readyFrames = useRef(0);
+  const readyFired = useRef(false);
 
   const fit = useMemo(() => {
     scene.traverse((obj) => {
@@ -84,6 +92,18 @@ function BusinessmanModel({ mouse }: { mouse: { current: { x: number; y: number 
     const targetX = mouse.current.y * 0.32;
     group.current.rotation.y = lerp(group.current.rotation.y, targetY, 0.22);
     group.current.rotation.x = lerp(group.current.rotation.x, targetX, 0.22);
+
+    // Once the model has rendered three frames, tell the welcome loader
+    // it can dismiss — Contact's heavy assets are now live on screen.
+    if (!readyFired.current) {
+      readyFrames.current += 1;
+      if (readyFrames.current >= 3) {
+        readyFired.current = true;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("contact-ready"));
+        }
+      }
+    }
   });
 
   return (
@@ -98,12 +118,17 @@ function BusinessmanModel({ mouse }: { mouse: { current: { x: number; y: number 
   );
 }
 
-// Intentionally NOT calling useGLTF.preload here — the businessman GLB is
-// ~1 MB and sits at the bottom of the page (Contact section). Preloading
-// it on initial page load would tie up the browser's network/main thread
-// for several seconds on mobile while the user is still looking at Hero,
-// keeping the tab's "loading" indicator spinning long after the page is
-// visually interactive. The GLB will fetch lazily when Contact mounts.
+// Preload the GLB at module init. Safe to do here now because:
+//   1. Contact mounts eagerly on desktop (no LazySection), so its
+//      `<BusinessmanScene />` dynamic import triggers this module to
+//      evaluate during the initial loader window — the GLB download is
+//      part of the gated load, not an afterthought.
+//   2. Mobile drops the entire BusinessmanScene block from Contact's JSX,
+//      so this module is never imported on phones. No mobile data wasted.
+//   3. WelcomeLoader holds the curtain until `contact-ready` fires (see
+//      `useFrame` above), so the user never sees the page until the
+//      avatar is on screen — no mid-scroll fetch/parse stutter.
+useGLTF.preload(MODEL_URL, "/draco/");
 
 function Loading() {
   return (

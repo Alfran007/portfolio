@@ -5,13 +5,25 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
- * Lean full-page loader. The counter ramps to 85% on its own pace, then
- * holds until `hero-ready` fires (HeroScene flushed its first frame) and
- * runs the final 85→100 ramp before sliding off. 4 s hard fallback so a
- * stalled WebGL boot never strands the user.
+ * Lean full-page loader. The bar progresses in three stages:
+ *   - pre `hero-ready`:    eases toward 60  (HeroScene still loading)
+ *   - hero-ready only:     eases toward 90  (Hero on screen, BusinessmanScene
+ *                                            for Contact still streaming in
+ *                                            the background)
+ *   - hero + contact ready: sprints to 100, exits
  *
- * Intentionally NOT gated on `window.load` or `document.fonts.ready` — those
- * signals waited on every image and every webfont decode, adding 1.5–3 s
+ * Folding Contact's `BusinessmanScene` chunk + 1 MB GLB into the loader
+ * window means the user never sees a mid-scroll stutter when they reach
+ * the Contact section — by the time the curtain slides off, both the
+ * Hero avatar AND the businessman model are fully in the HTTP / module
+ * cache. `HeavyAssetPrefetcher` runs the prefetch in parallel with the
+ * Hero load and dispatches `contact-ready` when both promises settle.
+ *
+ * 8 s hard fallback releases regardless so a stalled WebGL boot or dead
+ * network can never strand the user.
+ *
+ * Intentionally NOT gated on `window.load` or `document.fonts.ready` —
+ * those signals waited on every image / webfont decode and added 1.5–3 s
  * on top of an already-visible page without blocking anything the user
  * actually sees behind the curtain.
  *
@@ -41,57 +53,56 @@ export default function WelcomeLoader() {
     // Skip the heavy ramp/wait machinery on mobile — it's already hidden.
     if (isMobile) return;
 
-    // The loader holds near 90% until `hero-ready` fires (HeroScene flushed
-    // its first frame). Once that fires we ramp through to 100 and exit.
-    // 4 s hard fallback releases regardless so a stalled WebGL boot can
-    // never strand the user.
     const heroReady = { current: false };
+    const contactReady = { current: false };
     const markHero = () => {
       heroReady.current = true;
     };
+    const markContact = () => {
+      contactReady.current = true;
+    };
     window.addEventListener("hero-ready", markHero);
+    window.addEventListener("contact-ready", markContact);
 
+    // 8 s hard fallback. Up from 4 s because the loader now also covers
+    // Contact's 1 MB GLB load on top of Hero's avatar.
     const maxTimeout = setTimeout(() => {
       heroReady.current = true;
-    }, 4000);
+      contactReady.current = true;
+    }, 8000);
 
-    // Drive the bar directly off React state with the functional updater
-    // form of `setCount`. That removes any reliance on a closure-captured
-    // local variable (the old `let v` could desync from state under
-    // StrictMode double-mount / fast-refresh and made the bar appear
-    // stuck at 00% if React batched the first few ticks). Using
-    // `setCount(c => ...)` guarantees each tick reads the latest value.
+    // Drive the bar directly off React state with `setCount(c => ...)` so
+    // the source of truth is React, not a closure-captured local that
+    // could desync under StrictMode double-mount.
     //
-    // Curve: until hero-ready we ease from 0 toward 90, slower as we
-    // approach the cap so it doesn't visibly slam to 90 and sit there.
-    // Once hero-ready fires we close the remaining gap in big strides
-    // until we hit 100, then exit.
+    // Curve in three stages: pre-hero → ease to 60, hero-only → ease to
+    // 90, both-ready → sprint to 100. Each ease shrinks step size as we
+    // approach its cap so the bar never visibly slams and pauses.
     let exitTimer: ReturnType<typeof setTimeout> | null = null;
     const tick = setInterval(() => {
       setCount((c) => {
-        if (heroReady.current) {
+        if (heroReady.current && contactReady.current) {
           if (c >= 100) {
-            // Already at 100 — schedule exit once.
             if (!exitTimer) {
               exitTimer = setTimeout(() => setShow(false), 120);
             }
             return c;
           }
-          // Sprint to 100 in ~3 ticks (~96 ms) once hero is ready.
+          // Sprint to 100 in ~3 ticks (~180 ms).
           return Math.min(100, c + Math.max(6, Math.ceil((100 - c) / 3)));
         }
-        // Pre-hero-ready: ease toward 90 so the bar always visibly moves
-        // even when the GLB takes a while. Step shrinks as we approach
-        // the cap so we don't slam into it.
-        const remaining = Math.max(0, 90 - c);
+        const cap = heroReady.current ? 90 : 60;
+        const remaining = Math.max(0, cap - c);
         if (remaining <= 0) return c;
+        // 6 % of remaining each tick, floor of 1, so the bar always moves.
         const step = Math.max(1, Math.ceil(remaining * 0.06));
-        return Math.min(90, c + step);
+        return Math.min(cap, c + step);
       });
     }, 60);
 
     return () => {
       window.removeEventListener("hero-ready", markHero);
+      window.removeEventListener("contact-ready", markContact);
       clearTimeout(maxTimeout);
       if (exitTimer) clearTimeout(exitTimer);
       clearInterval(tick);
