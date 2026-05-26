@@ -41,48 +41,59 @@ export default function WelcomeLoader() {
     // Skip the heavy ramp/wait machinery on mobile — it's already hidden.
     if (isMobile) return;
 
-    // The loader holds at 85% until the Hero scene flushes its first frame
-    // (`hero-ready`). Once that fires we ramp straight through to 100 and
-    // exit — no font wait, no idle-callback buffer, no extra dwell. Those
-    // gates were adding 1.5–3 s on top of an already-loaded page. Window
-    // `load` and `fonts.ready` were the slowest signals (waiting on every
-    // image, every webfont decode) yet they didn't actually block the Hero
-    // from being visually correct.
-    let heroReady = false;
+    // The loader holds near 90% until `hero-ready` fires (HeroScene flushed
+    // its first frame). Once that fires we ramp through to 100 and exit.
+    // 4 s hard fallback releases regardless so a stalled WebGL boot can
+    // never strand the user.
+    const heroReady = { current: false };
     const markHero = () => {
-      heroReady = true;
+      heroReady.current = true;
     };
     window.addEventListener("hero-ready", markHero);
 
-    // 4 s hard fallback releases regardless so the user is never stranded
-    // on a stalled WebGL boot. Down from 10 s — if the avatar hasn't
-    // rendered in 4 s, something is wrong and we'd rather show the page.
     const maxTimeout = setTimeout(() => {
-      heroReady = true;
+      heroReady.current = true;
     }, 4000);
 
-    // Tick is 32 ms with 5–14 increments, so the bar reaches 85 in roughly
-    // ~0.4 s and 100 in ~0.6 s — fast enough that on a warm cache the
-    // loader is effectively a brief flash rather than a forced wait.
-    let v = 0;
+    // Drive the bar directly off React state with the functional updater
+    // form of `setCount`. That removes any reliance on a closure-captured
+    // local variable (the old `let v` could desync from state under
+    // StrictMode double-mount / fast-refresh and made the bar appear
+    // stuck at 00% if React batched the first few ticks). Using
+    // `setCount(c => ...)` guarantees each tick reads the latest value.
+    //
+    // Curve: until hero-ready we ease from 0 toward 90, slower as we
+    // approach the cap so it doesn't visibly slam to 90 and sit there.
+    // Once hero-ready fires we close the remaining gap in big strides
+    // until we hit 100, then exit.
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
     const tick = setInterval(() => {
-      const cap = heroReady ? 100 : 85;
-      if (v >= cap) {
-        if (v >= 100) {
-          clearInterval(tick);
-          // 120 ms dwell at 100% so the user sees the full bar before exit.
-          setTimeout(() => setShow(false), 120);
+      setCount((c) => {
+        if (heroReady.current) {
+          if (c >= 100) {
+            // Already at 100 — schedule exit once.
+            if (!exitTimer) {
+              exitTimer = setTimeout(() => setShow(false), 120);
+            }
+            return c;
+          }
+          // Sprint to 100 in ~3 ticks (~96 ms) once hero is ready.
+          return Math.min(100, c + Math.max(6, Math.ceil((100 - c) / 3)));
         }
-        return;
-      }
-      v += Math.floor(Math.random() * 10) + 5;
-      if (v > cap) v = cap;
-      setCount(v);
-    }, 32);
+        // Pre-hero-ready: ease toward 90 so the bar always visibly moves
+        // even when the GLB takes a while. Step shrinks as we approach
+        // the cap so we don't slam into it.
+        const remaining = Math.max(0, 90 - c);
+        if (remaining <= 0) return c;
+        const step = Math.max(1, Math.ceil(remaining * 0.06));
+        return Math.min(90, c + step);
+      });
+    }, 60);
 
     return () => {
       window.removeEventListener("hero-ready", markHero);
       clearTimeout(maxTimeout);
+      if (exitTimer) clearTimeout(exitTimer);
       clearInterval(tick);
     };
   }, [isMobile]);
