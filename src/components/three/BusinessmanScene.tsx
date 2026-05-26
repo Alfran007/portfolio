@@ -98,7 +98,12 @@ function BusinessmanModel({ mouse }: { mouse: { current: { x: number; y: number 
   );
 }
 
-useGLTF.preload(MODEL_URL, "/draco/");
+// Intentionally NOT calling useGLTF.preload here — the businessman GLB is
+// ~1 MB and sits at the bottom of the page (Contact section). Preloading
+// it on initial page load would tie up the browser's network/main thread
+// for several seconds on mobile while the user is still looking at Hero,
+// keeping the tab's "loading" indicator spinning long after the page is
+// visually interactive. The GLB will fetch lazily when Contact mounts.
 
 function Loading() {
   return (
