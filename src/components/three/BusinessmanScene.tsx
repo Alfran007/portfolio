@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, Html, ContactShadows } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useIsMobile } from "@/lib/useIsMobile";
 
@@ -144,6 +144,21 @@ function Loading() {
 export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }) {
   const mouse = useRef({ x: 0, y: 0 });
   const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Initial render must keep ticking until the model has rendered enough
+  // frames to dispatch `contact-ready` (3 frames inside BusinessmanModel's
+  // useFrame). Until that happens, force frameloop="always" regardless of
+  // visibility — Contact mounts eager and is off-screen at page load, so
+  // a visibility-only gate would never let the loop run and the loader
+  // would hit its 8 s hard fallback every time.
+  const [initialRendered, setInitialRendered] = useState(false);
+  // `isVisible` follows the section's IntersectionObserver. Without this,
+  // the Canvas keeps animating at 60 fps the entire time the user reads
+  // Hero → About → Experience → Skills → Projects → Certifications, with
+  // ContactShadows running its blur pass every frame. That sustained
+  // GPU/CPU load was the source of the desktop scroll jank — pausing it
+  // when off-screen reclaims the frame budget for Lenis smooth scroll.
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -154,8 +169,34 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
     return () => window.removeEventListener("mousemove", handler);
   }, []);
 
+  // Listen for the `contact-ready` event the model dispatches after its
+  // first three rendered frames. Once that fires we know the avatar is
+  // visually live and the loader has all it needs, so we can hand control
+  // of the render loop over to the visibility observer below.
+  useEffect(() => {
+    const onReady = () => setInitialRendered(true);
+    window.addEventListener("contact-ready", onReady);
+    return () => window.removeEventListener("contact-ready", onReady);
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      // 300 px head-start so the canvas is already rendering by the time
+      // the user actually reaches Contact — no first-frame stutter on
+      // resume because the lerp has already had a few frames to settle.
+      { rootMargin: "300px" }
+    );
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const frameloop: "always" | "never" = !initialRendered || isVisible ? "always" : "never";
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full h-full pointer-events-none select-none"
       style={{
         WebkitTapHighlightColor: "transparent",
@@ -170,6 +211,11 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
         // take effect on the new GPU profile (Canvas reads these props only
         // at mount time).
         key={isMobile ? "m" : "d"}
+        // Dynamic frameloop — see comment block above. "always" while the
+        // section is visible (or before the first dispatch); "never" once
+        // the user has scrolled past, at which point we stop burning frames
+        // on a canvas no one is looking at.
+        frameloop={frameloop}
         gl={{ alpha: true, antialias: !isMobile }}
         camera={{ position: [0, 0.2, cameraZ], fov: 32 }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}
@@ -195,6 +241,11 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
             blur={2.4}
             far={2.5}
             color="#000000"
+            // Model is static (no animation) and only sways via group
+            // rotation; the heavy contact-shadow blur pass doesn't need
+            // to re-render every frame. 60 frames is enough to capture
+            // the initial settle, then the shadow is baked and free.
+            frames={60}
           />
         </Suspense>
       </Canvas>

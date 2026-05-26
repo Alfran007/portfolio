@@ -298,6 +298,15 @@ export default function HeroScene() {
   const flash = useRef(0);
   const [hint, setHint] = useState(true);
   const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Keep the loop running at "always" until the first paint has flushed
+  // and `hero-ready` has fired. After that we hand control over to the
+  // IntersectionObserver below — the heavy EffectComposer (Bloom + CA +
+  // Vignette) keeps eating GPU when the user has long since scrolled past
+  // Hero, which on desktop manifested as scroll jank further down the
+  // page. Pausing the canvas reclaims that frame budget.
+  const [initialRendered, setInitialRendered] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   // Pick the layout profile ONCE per render based on the current breakpoint.
   // All downstream three.js positions, lights, cursor mapping, and camera
@@ -305,6 +314,27 @@ export default function HeroScene() {
   // source change instead of half-a-dozen scattered ternaries.
   const layout = isMobile ? MOBILE_LAYOUT : DESKTOP_LAYOUT;
   const { anchorX, cameraX, baseZ, fov, headXFrac, headYFrac } = layout;
+
+  // Avatar dispatches `hero-ready` from useFrame after 3 rendered frames.
+  // Once we've seen it, the loop can switch to visibility-driven.
+  useEffect(() => {
+    const onReady = () => setInitialRendered(true);
+    window.addEventListener("hero-ready", onReady);
+    return () => window.removeEventListener("hero-ready", onReady);
+  }, []);
+
+  // IntersectionObserver — pause the render loop once Hero leaves the
+  // viewport. `rootMargin: "300px"` re-arms the loop slightly before the
+  // user actually scrolls back into Hero so there's no first-frame hop.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: "300px" }
+    );
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleMouse = (e: MouseEvent) => {
@@ -338,8 +368,11 @@ export default function HeroScene() {
     };
   }, [headXFrac, headYFrac]);
 
+  const frameloop: "always" | "never" = !initialRendered || isVisible ? "always" : "never";
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full h-full select-none"
       // Disable every browser-native "I just tapped something" affordance:
       //   - tap highlight: kills the gray/blue iOS Safari + Chrome Android
@@ -371,6 +404,11 @@ export default function HeroScene() {
         // from desktop-class width into mobile (or vice versa) would keep
         // the old FOV — leaving the avatar partially out of frame.
         key={isMobile ? "m" : "d"}
+        // Dynamic frameloop — "always" while Hero is on-screen (default,
+        // since the page loads with Hero in view); flips to "never" once
+        // the user scrolls past so Bloom / ChromaticAberration / Vignette
+        // stop running. Re-arms 300 px before Hero re-enters view.
+        frameloop={frameloop}
         gl={{ alpha: true, antialias: !isMobile, powerPreference: "high-performance" }}
         camera={{ position: [cameraX, 0.45, baseZ], fov }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}
