@@ -340,8 +340,25 @@ export default function HeroScene() {
 
   return (
     <div
-      className="relative w-full h-full"
-      style={{ background: "transparent" }}
+      className="relative w-full h-full select-none"
+      // Disable every browser-native "I just tapped something" affordance:
+      //   - tap highlight: kills the gray/blue iOS Safari + Chrome Android
+      //     flash that paints over the avatar on touch
+      //   - touch callout: kills the iOS long-press preview menu (would
+      //     try to treat the canvas like a saveable image)
+      //   - user-select: kills the text-select rectangle on click-drag
+      //   - outline: keeps focus from drawing a desktop ring on the canvas
+      // The avatar's own click flash (handled by the onClick below) still
+      // fires; only the browser chrome around it is suppressed.
+      style={{
+        background: "transparent",
+        WebkitTapHighlightColor: "transparent",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        outline: "none",
+        touchAction: "pan-y",
+      }}
       onClick={() => {
         flash.current = 1;
         setHint(false);
@@ -357,7 +374,12 @@ export default function HeroScene() {
         gl={{ alpha: true, antialias: !isMobile, powerPreference: "high-performance" }}
         camera={{ position: [cameraX, 0.45, baseZ], fov }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}
-        style={{ background: "transparent" }}
+        style={{
+          background: "transparent",
+          WebkitTapHighlightColor: "transparent",
+          outline: "none",
+          touchAction: "pan-y",
+        }}
         shadows={!isMobile}
       >
         <color attach="background" args={[0, 0, 0]} />

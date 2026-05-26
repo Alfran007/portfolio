@@ -130,7 +130,16 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
   }, []);
 
   return (
-    <div className="relative w-full h-full pointer-events-none">
+    <div
+      className="relative w-full h-full pointer-events-none select-none"
+      style={{
+        WebkitTapHighlightColor: "transparent",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        outline: "none",
+      }}
+    >
       <Canvas
         // Re-mount when breakpoint flips so DPR / antialias settings actually
         // take effect on the new GPU profile (Canvas reads these props only
@@ -139,7 +148,11 @@ export default function BusinessmanScene({ cameraZ = 4.6 }: { cameraZ?: number }
         gl={{ alpha: true, antialias: !isMobile }}
         camera={{ position: [0, 0.2, cameraZ], fov: 32 }}
         dpr={isMobile ? [1, 1.5] : [1, 2]}
-        style={{ background: "transparent" }}
+        style={{
+          background: "transparent",
+          WebkitTapHighlightColor: "transparent",
+          outline: "none",
+        }}
       >
         <ambientLight intensity={0.85} color="#ffffff" />
         <hemisphereLight args={["#dde6ff", "#1f1a33", 0.7]} />
