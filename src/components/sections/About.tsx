@@ -54,7 +54,12 @@ export default function About() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 flex items-center gap-2">
                     <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-xs font-mono text-white/80">
+                    {/* suppressHydrationWarning: the server renders the clock at
+                        request time and the client hydrates a few seconds later,
+                        so the minute can differ — a hydration mismatch that can
+                        trigger a client re-render/flash. The value is decorative,
+                        so we keep the SSR value and suppress the warning. */}
+                    <span className="text-xs font-mono text-white/80" suppressHydrationWarning>
                       Bangalore · IST {new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }).format(new Date())}
                     </span>
                   </div>

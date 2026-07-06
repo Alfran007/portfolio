@@ -99,7 +99,11 @@ export default async function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col text-foreground">
-        <WelcomeLoader isMobile={isMobile} />
+        {/* Desktop-only: the loader exists to mask WebGL boot. Mobile ships no
+            WebGL and its SSR HTML is fully painted on arrival, so on phones the
+            loader was just an opaque curtain hiding ready content for up to
+            1.5 s ("opens, then hangs"). */}
+        {!isMobile && <WelcomeLoader isMobile={isMobile} />}
         {!isMobile && <AmbientBackground />}
         {!isMobile && <CustomCursor />}
         <SmoothScroll>

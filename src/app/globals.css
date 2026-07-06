@@ -93,6 +93,23 @@ body {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+
+  /* Clamp decorative halo blur on phones. Large-radius filter: blur()
+   * (120–140px hero halos + 40–64px card glows across About/Skills/Projects —
+   * 14+ blurred layers total) forces the GPU to re-rasterize huge layers, which
+   * stalled below-fold tile painting: the "scroll into a section → blank →
+   * cards pop in" symptom. Clamping every decorative blur to 20px keeps the
+   * soft glow at a fraction of the cost. All targets are pointer-events-none
+   * decoration, so this is purely a paint-cost change. */
+  .blur-\[120px\],
+  .blur-\[100px\],
+  .blur-\[140px\],
+  .blur-\[90px\],
+  .blur-\[80px\],
+  .blur-2xl,
+  .blur-3xl {
+    filter: blur(20px) !important;
+  }
 }
 
 /* Custom scrollbar */
