@@ -28,14 +28,14 @@ export default function Navbar() {
   return (
     <header
       className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-300",
+        "fixed top-0 inset-x-0 z-50 transition-all duration-300 pointer-events-none",
         scrolled ? "py-2" : "py-4"
       )}
     >
       <div className="mx-auto max-w-6xl px-4">
         <nav
           className={cn(
-            "flex items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-300",
+            "pointer-events-auto flex items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-300",
             scrolled ? "glass-strong shadow-[0_8px_32px_-12px_rgba(0,0,0,0.7)]" : "glass"
           )}
           aria-label="Primary"
