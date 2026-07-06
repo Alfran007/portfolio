@@ -7,6 +7,13 @@ import Certifications from "@/components/sections/Certifications";
 import Contact from "@/components/sections/Contact";
 import { serverIsMobile } from "@/lib/serverIsMobile";
 
+// Render on the Edge runtime. This route is dynamic (it reads the User-Agent
+// via headers() to pick the mobile/desktop tree), so it can't be statically
+// CDN-cached — but Edge has near-zero cold start and runs at a POP close to the
+// user, removing the multi-second serverless cold-start wait ("opens after a
+// few seconds") while keeping the per-device SSR architecture intact.
+export const runtime = "edge";
+
 /**
  * Server component. We compute `isMobile` once on the server from the
  * `User-Agent` header and pass it down to the components that branch
